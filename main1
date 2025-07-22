@@ -219,3 +219,82 @@ public class PropertyDecryptor {
         return new String(bytes);
     }
 }
+
+
+package com.indianBank.config;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Primary;
+
+import javax.sql.DataSource;
+import java.util.Base64;
+
+@Configuration
+public class DataSourceConfig {
+
+    @Value("${spring.datasource.url}")
+    private String url;
+
+    @Value("${spring.datasource.username}")
+    private String username;
+
+    @Value("${spring.datasource.password}")
+    private String password;
+
+    @Value("${spring.datasource.driver-class-name}")
+    private String driverClassName;
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+
+    @Bean
+    @Primary
+    @DependsOn("propertyDecryptor")
+    public DataSource dataSource() {
+        System.out.println("=== DataSourceConfig: Creating DataSource ===");
+        
+        // Decrypt all properties if they're encrypted
+        String decryptedUrl = decryptPassword(url);
+        String decryptedUsername = decryptPassword(username);
+        String decryptedPassword = decryptPassword(password);
+        
+        System.out.println("DataSourceConfig: Using URL: " + decryptedUrl);
+        System.out.println("DataSourceConfig: Using Username: " + decryptedUsername);
+        System.out.println("DataSourceConfig: Password decrypted: " + (decryptedPassword != null && !decryptedPassword.equals(password)));
+        
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl(decryptedUrl);
+        config.setUsername(decryptedUsername);
+        config.setPassword(decryptedPassword);
+        config.setDriverClassName(driverClassName);
+        
+        // Connection pool settings
+        config.setConnectionTimeout(20000);
+        config.setMaximumPoolSize(10);
+        config.setMinimumIdle(5);
+        config.setIdleTimeout(300000);
+        config.setMaxLifetime(1200000);
+        config.setLeakDetectionThreshold(60000);
+        
+        // Connection validation
+        config.setConnectionTestQuery("SELECT 1");
+        config.setValidationTimeout(3000);
+        
+        System.out.println("=== DataSourceConfig: DataSource created successfully ===");
+        return new HikariDataSource(config);
+    }
+    
+    private String decryptPassword(String encrypted) {
+        if (encrypted != null && encrypted.startsWith("DEC(") && encrypted.endsWith(")")) {
+            String encoded = encrypted.substring(4, encrypted.length() - 1);
+            return new String(Base64.getDecoder().decode(encoded));
+        }
+        return encrypted;
+    }
+}
+
