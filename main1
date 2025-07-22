@@ -1,0 +1,90 @@
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import javax.annotation.PostConstruct;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+public class PropertyDecryptor {
+    
+    private final Environment env;
+    private static final String PREFIX = "DEC(";
+    private static final String SUFFIX = ")";
+    
+    // Map of property keys that need decryption
+    private static final Map<String, String> DECRYPTION_KEYS = Map.of(
+        "spring.datasource.password", "spring.datasource.password",
+        "jwt.secret", "jwt.secret",
+        "kms.service.password", "kms.service.password",
+        "ob.service.password", "ob.service.password",
+        "bank.certificates.private-cert-password", "bank.certificates.private-cert-password",
+        "bank.api.session-key", "bank.api.session-key",
+        "bank.api.client-secret", "bank.api.client-secret"
+    );
+    
+    public PropertyDecryptor(Environment env) {
+        this.env = env;
+    }
+    
+    @PostConstruct
+    public void decryptProperties() {
+        DECRYPTION_KEYS.forEach((srcKey, targetKey) -> {
+            String value = env.getProperty(srcKey);
+            if (value != null) {
+                String decrypted = decrypt(value);
+                System.setProperty(targetKey, decrypted);
+                
+                // Also set in environment for Spring usage
+                if (!srcKey.equals(targetKey)) {
+                    System.setProperty(srcKey, decrypted);
+                }
+            }
+        });
+    }
+    
+    private String decrypt(String encrypted) {
+        if (encrypted != null && encrypted.startsWith(PREFIX) && encrypted.endsWith(SUFFIX)) {
+            String encoded = encrypted.substring(PREFIX.length(), encrypted.length() - SUFFIX.length());
+            return new String(Base64.getDecoder().decode(encoded));
+        }
+        return encrypted;
+    }
+}
+
+
+
+
+import java.util.Base64;
+import java.util.Scanner;
+
+public class PropertyEncryptor {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        
+        System.out.println("Enter the value to encrypt:");
+        String original = scanner.nextLine();
+        
+        String encrypted = "DEC(" + Base64.getEncoder().encodeToString(original.getBytes()) + ")";
+        
+        System.out.println("\nEncrypted value:");
+        System.out.println(encrypted);
+        System.out.println("\nCopy this to your application.properties file");
+    }
+}
+
+
+# Database Configuration
+spring.datasource.password=DEC(dGVzdEAxMjM=)  # test@123
+
+# JWT Configuration
+jwt.secret=DEC(dWlrc2gmZGhfd2hLODNIbF9kSGRuc2xoX3VkaGZfd2Vpdw==)
+
+# Service Accounts
+kms.service.password=DEC(a21zX3NlcnZpY2VfcGFzc3dvcmQ=)  # kms_service_password
+ob.service.password=DEC(YWRtaW4xMjM=)  # admin123
+
+# Bank Certificates
+bank.certificates.private-cert-password=DEC(ZWxpcHNpc0AxMjM=)  # elipsis@123
+bank.api.session-key=DEC(VGdFWDdzNFZ0bHRzZE9qTFN2R2c5K1dKT3lSKzJSbENmVythNnY0NkZqUT0=)
+bank.api.client-secret=DEC(YzUzY2U2MzE5ZjZhZGMwYmY1ZGNkYmQzMWViYjVkZjE=)
