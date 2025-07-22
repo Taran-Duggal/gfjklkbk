@@ -1,0 +1,85 @@
+# Basic Application Config (remain unencrypted)
+spring.application.name=${SPRING_APPLICATION_NAME:Dems-IB}
+server.port=${SERVER_PORT:9091}
+server.servlet.context-path=${SERVER_SERVLET_CONTEXT_PATH:/inbound}
+
+# Database Configuration (with encrypted password)
+spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/dems_ib}
+spring.datasource.username=${SPRING_DATASOURCE_USERNAME:root}
+spring.datasource.password=DEC(4BjwCXZPS5V5Q8Z6XK5jWQ==)  # Encrypted format
+spring.datasource.driver-class-name=${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
+
+# JWT Configuration (with encrypted secret)
+jwt.secret=DEC(AMJpZGVqZ2VoZWpnaGVqaGUK)  # Encrypted format
+jwt.expiration=${JWT_EXPIRATION:32400000}
+jwt.refresh-threshold=${JWT_REFRESH_THRESHOLD:30600000}
+
+# Service Accounts (encrypted)
+kms.service.password=DEC(kms_encrypted_password_here)
+ob.service.password=DEC(ob_encrypted_password_here)
+bank.certificates.private-cert-password=DEC(bank_encrypted_password_here)
+
+
+
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import javax.annotation.PostConstruct;
+import java.util.Base64;
+
+@Configuration
+public class PropertyDecryptor {
+    
+    private final Environment env;
+    
+    public PropertyDecryptor(Environment env) {
+        this.env = env;
+    }
+    
+    @PostConstruct
+    public void decryptProperties() {
+        System.setProperty("spring.datasource.password", 
+            decrypt(env.getProperty("spring.datasource.password")));
+        System.setProperty("jwt.secret",
+            decrypt(env.getProperty("jwt.secret")));
+        // Add other properties as needed
+    }
+    
+    private String decrypt(String encrypted) {
+        if (encrypted != null && encrypted.startsWith("DEC(") && encrypted.endsWith(")")) {
+            String encoded = encrypted.substring(4, encrypted.length() - 1);
+            return new String(Base64.getDecoder().decode(encoded));
+        }
+        return encrypted;
+    }
+}
+
+
+
+
+import java.util.Base64;
+
+public class PropertyEncryptor {
+    public static void main(String[] args) {
+        String original = "your-sensitive-value";
+        String encrypted = "DEC(" + Base64.getEncoder().encodeToString(original.getBytes()) + ")";
+        System.out.println("Encrypted property value:\n" + encrypted);
+    }
+}
+
+
+
+<dependency>
+    <groupId>org.jasypt</groupId>
+    <artifactId>jasypt</artifactId>
+    <version>1.9.3</version>
+</dependency>
+
+
+import org.jasypt.util.text.BasicTextEncryptor;
+
+private String decrypt(String encrypted) {
+    BasicTextEncryptor encryptor = new BasicTextEncryptor();
+    encryptor.setPassword("MyFixedAppPassword123");
+    return encryptor.decrypt(encrypted.substring(4, encrypted.length()-1));
+}
