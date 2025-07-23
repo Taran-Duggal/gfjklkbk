@@ -1,0 +1,239 @@
+"Perform the following to remove extraneous resources:
+1. The following should yield no output: $ rm -rf $CATALINA_HOME/webapps/docs \ $CATALINA_HOME/webapps/examples
+If the Manager application is not utilized, also remove the following resources: $ rm –rf $CATALINA_HOME/webapps/host-manager \ $CATALINA_HOME/webapps/manager \ $CATALINA_HOME/conf/Catalina/localhost/manager.xml"
+"Perform the following to disable unused Connectors: 1. Within $CATALINA_HOME/conf/server.xml, remove or comment each unused Connector. For example, to disable an instance of the HTTPConnector, remove the following: 
+<Connector className=""org.apache.catalina.connector.http.HttpConnector""
+ ... 
+connectionTimeout=""60000""/>"
+"Perform the following to alter the server platform string that gets displayed when clients connect to the tomcat server.
+1. Extract the ServerInfo.properties file from the catalina.jar file: 
+$ cd $CATALINA_HOME/lib 
+$ jar xf catalina.jar org/apache/catalina/util/ServerInfo.properties
+2. Navigate to the util directory that was created 
+cd org/apache/catalina/util
+3. Open ServerInfo.properties in an editor
+4. Update the server.info attribute in the ServerInfo.properties file.
+server.info=<SomeWebServer>
+5. Update the catalina.jar with the modified ServerInfo.properties file. 
+$ jar uf catalina.jar org/apache/catalina/util/ServerInfo.properties"
+"Perform the following to alter the server version string that gets displayed when clients connect to the server.
+1. Extract the ServerInfo.properties file from the catalina.jar file: 
+$ cd $CATALINA_HOME/lib 
+$ jar xf catalina.jar org/apache/catalina/util/ServerInfo.properties
+2. Navigate to the util directory that was created 
+$ cd org/apache/Catalina/util
+3. Open ServerInfo.properties in an editor
+4. Update the server.number attribute server.number=<someversion>
+5. Update the catalina.jar with the modified ServerInfo.properties file.
+$ jar uf catalina.jar org/apache/catalina/util/ServerInfo.properties"
+"Perform the following to alter the server version string that gets displayed when clients connect to the server.
+1. Extract the ServerInfo.properties file from the catalina.jar file: 
+$ cd $CATALINA_HOME/lib 
+$ jar xf catalina.jar org/apache/catalina/util/ServerInfo.properties
+2. Navigate to the util directory that was created 
+$ cd org/apache/Catalina/util
+3. Open ServerInfo.properties in an editor
+4. Update the server.built attribute in the ServerInfo.properties file. server.built=
+5. Update the catalina.jar with the modified ServerInfo.properties file. 
+$ jar uf catalina.jar org/apache/catalina/util/ServerInfo.properties"
+"Perform the following to prevent Tomcat from advertising its presence via the X-PoweredBy HTTP header.
+1. Add the xpoweredBy attribute to each Connector specified in $CATALINA_HOME/conf/server.xml. 
+Set the xpoweredBy attributes value to false. 
+<Connector ... xpoweredBy=""false"" />
+Note: Alternatively, ensure the xpoweredBy attribute for each Connector specified in <CATALINA_HOME/conf/server.xml is absent.
+2. Add the server attribute to each Connector specified in $CATALINA_HOME/conf/server.xml. 
+Set the server attribute value to anything except a blank string."
+"Perform the following to prevent Tomcat from providing debug information to the requestor during runtime errors:
+1. Create a web page that contains the logic or message you wish to invoke when encountering a runtime error. For example purposes, assume this page is located at /error.jsp.
+2. Add a child element, <error-page>, to the <web-app> element, in the 
+$CATALINA_HOME/conf/web.xml file.
+3. Add a child element, <exception-type>, to the <error-page> element. Set the 
+value of the <exception-type> element to java.lang.Throwable.
+4. Add a child element <location> to the <error-page> element. Set the value of the <location> element to the location of page created in step 1."
+"Perform the following to prevent Tomcat from accepting a TRACE request:
+1. Set the allowTrace attributes to each Connector specified in $CATALINA_HOME/conf/server.xml to false. <Connector ... allowTrace=""false"" />
+Note: Alternatively, ensure the allowTrace attribute for each Connector specified in $CATALINA_HOME/conf/server.xml is absent."
+"In $CATALINA_HOME/conf/server.xml, add the server directive to the connector as shown
+below replacing apache with the text of your choosing. This text should not help in
+identifying the server.
+<Connector port=""8443"" server=”I am a teapot"" redirectPort=""8080"" />"
+"Perform the following to set a nondeterministic value for the shutdown attribute.
+1. Update the shutdown attribute in $CATALINA_HOME/conf/server.xml as follows: 
+<Server port=""8005"" shutdown=""NONDETERMINISTICVALUE"">
+Note: NONDETERMINISTICVALUE should be replaced with a sequence of random characters."
+"Perform the following to disable the Shutdown port.
+1. Set the port to -1 in the $CATALINA_HOME/conf/server.xml file:
+ <Server port=""-1"" shutdown=""SHUTDOWN"">"
+"1. Set the ownership of the $CATALINA_HOME and $CATALINA_BASE to tomcat_admin:tomcat.
+2. Remove read, write, and execute permissions for the world
+3. Remove write permissions for the group.
+
+# chown tomcat_admin.tomcat $CATALINA_HOME 
+# chown tomcat_admin.tomcat $CATALINA_BASE 
+# chmod g-w,o-rwx $CATALINA_BASE
+# chmod g-w,o-rwx $CATALINA_HOME"
+"Perform the following to restrict access to Tomcat files and directories:
+1. Set the ownership of the $CATALINA_HOME/conf to tomcat_admin:tomcat.
+2. Remove read, write, and execute permissions for the world
+3. Remove write permissions for the group.
+
+# chown tomcat_admin:tomcat $CATALINA_HOME/conf 
+# chmod g-w,o-rwx $CATALINA_HOME/conf
+# chown tomcat_admin:tomcat $CATALINA_HOME/logs 
+# chmod o-rwx $CATALINA_HOME/logs
+# chown tomcat_admin:tomcat $CATALINA_HOME/temp 
+# chmod o-rwx $CATALINA_HOME/temp
+# chown tomcat_admin:tomcat $CATALINA_HOME/bin 
+# chmod g-w,o-rwx $CATALINA_HOME/bin
+# chown tomcat_admin:tomcat $CATALINA_HOME/webapps 
+# chmod g-w,o-rwx $CATALINA_HOME/webapps
+# chmod 770 $CATALINA_HOME/conf/catalina.policy 
+# chown tomcat_admin:tomcat $CATALINA_HOME/conf/catalina.policy
+# chown tomcat_admin:tomcat $CATALINA_HOME/conf/catalina.properties 
+# chmod g-w,o-rwx $CATALINA_HOME/conf/catalina.properties
+# chown tomcat_admin:tomcat $CATALINA_HOME/conf/context.xml 
+# chmod g-w,o-rwx $CATALINA_HOME/conf/context.xml
+# chown tomcat_admin:tomcat $CATALINA_HOME/conf/logging.properties 
+# chmod g-w,o-rwx $CATALINA_HOME/conf/logging.properties
+# chown tomcat_admin:tomcat $CATALINA_HOME/conf/server.xml 
+# chmod g-w,o-rwx $CATALINA_HOME/conf/server.xml
+# chown tomcat_admin:tomcat $CATALINA_HOME/conf/tomcat-users.xml 
+# chmod g-w,o-rwx $CATALINA_HOME/conf/tomcat-users.xml
+# chown tomcat_admin:tomcat $CATALINA_HOME/conf/web.xml 
+# chmod g-w,o-rwx $CATALINA_HOME/conf/web.xml"
+"1. Set the ownership of the $CATALINA_HOME/logs to tomcat_admin:tomcat.
+# chown tomcat_admin:tomcat $CATALINA_HOME/logs
+2. Remove read, write, and execute permissions for the world
+# chmod o-rwx $CATALINA_HOME/logs"
+"1. Set the ownership of the $CATALINA_HOME/webapps to tomcat_admin:tomcat.
+# chown tomcat_admin:tomcat $CATALINA_HOME/webapps
+2. Remove read, write, and execute permissions for the world.
+# chmod g-w,o-rwx $CATALINA_HOME/webapps "
+"Perform the following to restrict access to Tomcat temp directory:
+1. Set the ownership of the $CATALINA_HOME/temp to tomcat_admin:tomcat.
+# chown tomcat_admin:tomcat $CATALINA_HOME/temp
+2. Remove read, write, and execute permissions for the world
+# chmod o-rwx $CATALINA_HOME/temp"
+"Perform the following to restrict access to Tomcat bin directory:
+1. Set the ownership of the $CATALINA_HOME/bin to tomcat_admin:tomcat.
+# chown tomcat_admin:tomcat $CATALINA_HOME/bin
+2. Remove read, write, and execute permissions for the world
+# chmod g-w,o-rwx $CATALINA_HOME/bin"
+"Perform the following to ensure improper realm is not in use: 
+# grep ""Realm className"" $CATALINA_HOME/conf/server.xml | grep MemoryRealm 
+# grep ""Realm className"" $CATALINA_HOME/conf/server.xml | grep JDBCRealm 
+# grep ""Realm className"" $CATALINA_HOME/conf/server.xml | grep UserDatabaseRealm 
+# grep ""Realm className"" $CATALINA_HOME/conf/server.xml | grep JAASRealm
+The above commands should not emit any output."
+"Create a lockout realm wrapping the main realm like the example below: 
+<Realm className=""org.apache.catalina.realm.LockOutRealm""
+failureCount=""3"" lockOutTime=""600"" cacheSize=""1000"" 
+cacheRemovalWarningTime=""3600""> 
+<Realm 
+className=""org.apache.catalina.realm.DataSourceRealm"" dataSourceName=... /> 
+</Realm>"
+"In the Connector element, set the clientAuth parameter to true.
+ <-- Define a SSL Coyote HTTP/1.1 Connector on port 8443 --> 
+<Connector port=""8443"" minProcessors=""5"" maxProcessors=""75"" 
+enableLookups=""true"" disableUploadTimeout=""true"" 
+acceptCount=""100"" debug=""0"" scheme=""https"" secure=""true""; 
+clientAuth=""true"" sslProtocol=""TLS""/>"
+"In server.xml, set the SSLEnabled attribute to true for each Connector that sends or receives sensitive information:
+ <Connector … 
+SSLEnabled=""true""
+ … />"
+"In server.xml, set the Connector’s scheme attribute to http for Connectors operating over HTTP. Set the Connector’s scheme attribute to https for Connectors operating of HTTPS.
+<Connector 
+… 
+scheme=""https""
+… />"
+"For each Connector defined in server.xml, set the secure attribute to true for those Connectors having SSLEnabled set to true. Set the secure attribute set to false for those Connectors having SSLEnabled set to false.
+<Connector SSLEnabled=""true"" 
+… 
+secure=""true"" 
+… />"
+"Create a logging.properties file and place that into your application WEB-INF\classes directory. Note: By default, installing Tomcat places a logging.properties file in $CATALINA_HOME\conf. This file can be used as base for an application specific logging properties file
+
+Add the following entries to your logging.properties file if they do not exist. handlers=org.apache.juli.FileHandler, java.util.logging.ConsoleHandler
+Ensure logging is not off and set the logging level to the desired level such as: org.apache.juli.FileHandler.level=FINEST"
+"Add the following entries, replacing <file_handler> with either FileHandler or
+AsyncFileHandler, to your logging.properties file if they do not exist.
+handlers=1catalina.org.apache.juli.<file_handler>,
+2localhost.org.apache.juli.<file_handler>,
+3manager.org.apache.juli.<file_handler>, 4hostmanager.
+org.apache.juli.<file_handler>, java.util.logging.ConsoleHandler
+Ensure logging is not off and set the <logging_level> to the desired level (SEVERE, WARNING,
+INFO, CONFIG, FINE, FINER, FINEST or ALL), for example:
+75 | P a g e
+org.apache.juli.FileHandler.level=<logging_level>"
+"Add the following statement into the $CATALINA_BASE\webapps\<app name>\META-INF\context.xml file if it does not already exist.
+
+<Valve className=""org.apache.catalina.valves.AccessLogValve""
+directory=""$CATALINA_HOME/logs/"" 
+prefix=""access_log"" 
+fileDateFormat=""yyyy-MM-dd.HH"" 
+suffix="".log""
+pattern=""%t %H cookie:%{SESSIONID}c request:%{SESSIONID}r %m %U %s %q %r"" 
+/>
+
+Perform the following:
+1. Add the following statement into the $CATALINA_BASE\webapps\<app-name>\META-INF\context.xml file if it does not already exist. 
+<Valve className=""org.apache.catalina.valves.AccessLogValve"" 
+directory=""$CATALINA_HOME/logs/"" prefix=""access_log"" fileDateFormat=""yyyy-MM-dd.HH"" suffix="".log"" pattern=""%t %H 
+cookie:%{SESSIONID}c request:%{SESSIONID}r %m %U %s %q %r"" 
+/>
+2. Set the location pointed to by the directory attribute to be owned by tomcat_admin:tomcat with permissions of o-rwx.
+# chown tomcat_admin:tomcat $CATALINA_HOME/logs 
+# chmod o-rwx $CATALINA_HOME/logs
+
+Add the following statement into the $CATALINA_BASE\webapps\<app-name>\META-INF\context.xml file if it does not already exist. 
+<Valve className=""org.apache.catalina.valves.AccessLogValve"" 
+directory=""$CATALINA_HOME/logs/"" prefix=""access_log"" fileDateFormat=""yyyy-MM-dd.HH"" suffix="".log"" pattern=""%h %t %H cookie:%{SESSIONID}c request:%{SESSIONID}r %m %U %s %q %r"" 
+/>"
+"Perform the following:
+1. Add the following properties into your logging.properties file if they do not exist <application_name>.org.apache.juli.FileHandler.directory=<log_location> <application_name>.org.apache.juli.FileHandler.prefix=<application_name>
+2. Set the location pointed to by the directory attribute to be owned by tomcat_admin:tomcat with permissions of o-rwx.
+# chown tomcat_admin:tomcat <log_location> 
+# chmod o-rwx <log_location>"
+Create the following entry in your logging.properties file. This field is specified in bytes. java.util.logging.FileHandler.limit=10000
+Edit $CATALINA_BASE/conf/catalina.properties by adding allowed packages to the package.access list: package.access = sun.,org.apache.catalina.,org.apache.coyote.,org.apache.tomcat., org.apache.jasper
+"The security policies implemented by the Java SecurityManager are configured in the $CATALINA_HOME/conf/catalina.policy file. Once you have configured the catalina.policy file for use with a SecurityManager, Tomcat can be started with a SecurityManager in place by using the --security option:
+$ $CATALINA_HOME/bin/catalina.sh start -security (Unix) 
+C:\> %CATALINA_HOME%\bin\catalina start -security (Windows)"
+"In the $CATALINA_HOME/conf/server.xml file, change autoDeploy and deployOnStartup to false. 
+autoDeploy=""false""
+deployOnStartup=""false""
+"
+"Move the web content files to a separate partition from the tomcat system files and update your configuration.
+
+For the administration application, edit $CATALINA_HOME/conf/server.xml and uncomment the following: <Valve className=""org.apache.catalina.valves.RemoteAddrValve"" allow=""127\.0\.0\.1""/>
+Note: The RemoteAddrValve property expects a regular expression, therefore periods and other regular expression meta-characters must be escaped."
+"For the manager application, edit $CATALINA_BASE/conf/[enginename]/[hostname]/manager.xml, and add the bolded line: 
+<Context path=""/manager"" docBase=""${catalina.home}/webapps/manager"" debug=""0"" 
+privileged=""true""> 
+<Valve className=""org.apache.catalina.valves.RemoteAddrValve"" allow=""127\.0\.0\.1""/>
+ <!-- Link to the user database we will get roles from -->
+ <ResourceLink name=""users"" global=""UserDatabase"" 
+type=""org.apache.catalina.UserDatabase""/> 
+</Context>
+Add hosts, comma separated, which are allowed to access the admin application.
+
+Set $CATALINA_HOME/webapps/manager/WEB-INF/web.xml: 
+<security-constraint> <user-data-constraint> 
+<transport-guarantee>CONFIDENTIAL</transport-guarantee>
+<user-data-constraint> </security-constraint>
+
+Perform the following to rename the manager application:
+1. Rename the manager application XML file: 
+# mv $CATALINA_HOME/webapps/host-manager/manager.xml \ 
+$CATALINA_HOME/webapps/host-manager/new-name.xml
+2. Update the docBase attribute within $CATALINA_HOME/webapps/host-manager/new-name.xml to ${catalina.home}/webapps/new-name
+3. Move $CATALINA_HOME/webapps/manager to $CATALINA_HOME/webapps/new-name 
+# mv $CATALINA_HOME/webapps/manager $CATALINA_HOME/webapps/new-name"
+"To enabled it uncomment the listener in $CATALINA_BASE/conf/server.xml. If the operating system supports umask then the line in $CATALINA_HOME/bin/catalina.sh that obtains the umask also needs to be uncommented.
+Within Server elements add:
+1 - CheckedOsUsers: A comma separated list of OS users that must not be used to start Tomcat. If not specified, the default value of root is used.
+2 - MinimumUmask: The least restrictive umask that must be configured before Tomcat will start. If not specified, the default value of 0007 is used. 
+<Listener className=""org.apache.catalina.security.SecurityListener"" checkedOsUsers=""alex,bob"" minimumUmask=""0007"" />"
+"Start Tomcat with strict compliance enabled, add -
+Dorg.apache.catalina.STRICT_SERVLET_COMPLIANCE=true to your startup script."
