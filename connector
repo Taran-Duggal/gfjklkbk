@@ -1,0 +1,139 @@
+public class PropertyEncryptor {
+    private static final byte[] XOR_KEY = "MyAppXORKey!123".getBytes();
+    
+    public static String encrypt(String value) {
+        byte[] bytes = value.getBytes();
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] ^= XOR_KEY[i % XOR_KEY.length];
+        }
+        return "DEC(" + Base64.getEncoder().encodeToString(bytes) + ")";
+    }
+}
+
+package com.indianBank.config;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import javax.sql.DataSource;
+
+@Configuration
+public class DataSourceConfig {
+
+    @Value("${spring.datasource.url}")
+    private String url;
+
+    @Value("${spring.datasource.username}")
+    private String username;
+
+    @Value("${spring.datasource.password}")
+    private String password;
+
+    @Value("${spring.datasource.driver-class-name}")
+    private String driverClassName;
+
+    @Bean
+    public DataSource dataSource() {
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl(url);
+        config.setUsername(username);
+        config.setPassword(password);
+        config.setDriverClassName(driverClassName);
+        
+        // Connection pool settings
+        config.setConnectionTimeout(20000);
+        config.setMaximumPoolSize(10);
+        config.setMinimumIdle(5);
+        config.setIdleTimeout(300000);
+        config.setMaxLifetime(1200000);
+        config.setLeakDetectionThreshold(60000);
+        config.setConnectionTestQuery("SELECT 1");
+        config.setValidationTimeout(3000);
+        
+        return new HikariDataSource(config);
+    }
+}
+
+package com.indianBank.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.MapPropertySource;
+import javax.annotation.PostConstruct;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+public class PropertyDecryptor {
+    
+    private final ConfigurableEnvironment env;
+    private static final String PREFIX = "DEC(";
+    private static final String SUFFIX = ")";
+    private static final byte[] XOR_KEY = "MyAppXORKey!123".getBytes();
+    
+    // List of all property keys that should be decrypted
+    private static final String[] ENCRYPTED_KEYS = {
+        "spring.datasource.url",
+        "spring.datasource.username",
+        "spring.datasource.password",
+        "jwt.secret",
+        "kms.service.username",
+        "kms.service.password",
+        "ob.service.username",
+        "ob.service.password",
+        "bank.certificates.private-cert-password",
+        "bank.api.session-key",
+        "bank.api.client-id",
+        "bank.api.client-secret",
+        "bank.api.base-url"
+    };
+    
+    public PropertyDecryptor(ConfigurableEnvironment env) {
+        this.env = env;
+    }
+    
+    @PostConstruct
+    public void decryptProperties() {
+        Map<String, Object> decryptedProps = new HashMap<>();
+        
+        for (String key : ENCRYPTED_KEYS) {
+            String value = env.getProperty(key);
+            if (value != null && value.startsWith(PREFIX) && value.endsWith(SUFFIX)) {
+                String encrypted = value.substring(PREFIX.length(), value.length() - SUFFIX.length());
+                decryptedProps.put(key, decrypt(encrypted));
+            }
+        }
+        
+        if (!decryptedProps.isEmpty()) {
+            env.getPropertySources().addFirst(
+                new MapPropertySource("decryptedProperties", decryptedProps)
+            );
+        }
+    }
+    
+    private String decrypt(String encrypted) {
+        byte[] bytes = Base64.getDecoder().decode(encrypted);
+        // XOR decryption
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] ^= XOR_KEY[i % XOR_KEY.length];
+        }
+        return new String(bytes);
+    }
+}
+
+
+<Connector 
+    port="8443" 
+    protocol="org.apache.coyote.http11.Http11NioProtocol"
+    SSLEnabled="true"
+    scheme="https"
+    secure="true"
+    keystoreFile="C:\path\to\localhost-rsa.jks"
+    keystorePass="changeit"
+    clientAuth="false"
+    sslProtocol="TLS"
+/>
