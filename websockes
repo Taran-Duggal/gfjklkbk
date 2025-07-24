@@ -1,0 +1,176 @@
+# Converting RestTemplate to WebSocket Implementation
+
+To replace the RestTemplate calls with WebSocket communication, we'll need to make significant changes to the architecture. Here's how you can modify the code:
+
+## 1. First, set up WebSocket configuration
+
+```java
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+        config.enableSimpleBroker("/topic");
+        config.setApplicationDestinationPrefixes("/app");
+    }
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/ws").setAllowedOriginPatterns("*").withSockJS();
+    }
+}
+```
+
+## 2. Create a WebSocket service class
+
+```java
+@Service
+public class WebSocketService {
+
+    private final SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    public WebSocketService(SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = messagingTemplate;
+    }
+
+    public void sendMessage(String destination, Object payload) {
+        messagingTemplate.convertAndSend(destination, payload);
+    }
+
+    public <T> T sendAndReceive(String destination, Object request, Class<T> responseType, long timeout) {
+        // Implementation for request-response pattern over WebSocket
+        // This requires additional setup with temporary queues
+        // Here's a simplified version:
+        
+        String correlationId = UUID.randomUUID().toString();
+        String replyDestination = "/temp-queue/" + correlationId;
+        
+        // Send the request
+        messagingTemplate.convertAndSend(destination, 
+            new WebSocketRequest(correlationId, replyDestination, request));
+        
+        // Wait for response (simplified - in production you'd use CompletableFuture or similar)
+        try {
+            Thread.sleep(timeout);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        
+        // In a real implementation, you'd have a response handler registered
+        return null;
+    }
+}
+```
+
+## 3. Modify the token service to use WebSocket
+
+```java
+private String getServiceToken() {
+    long currentTime = System.currentTimeMillis();
+
+    if (serviceToken == null || currentTime > tokenExpiryTime - 300000) {
+        logger.debug("Service token null or expiring soon, requesting new token");
+
+        Map<String, String> loginRequest = new HashMap<>();
+        loginRequest.put("loginId", decryptedObUsername);
+        loginRequest.put("password", decryptedObPassword);
+
+        try {
+            // Using WebSocket instead of RestTemplate
+            Map response = webSocketService.sendAndReceive(
+                "/auth/login",
+                loginRequest,
+                Map.class,
+                5000 // 5 second timeout
+            );
+
+            if (response != null) {
+                serviceToken = (String) response.get("token");
+                tokenExpiryTime = System.currentTimeMillis() + 32400000;
+                logger.debug("Service token refreshed, valid until: {}", 
+                    new java.util.Date(tokenExpiryTime));
+            }
+        } catch (Exception e) {
+            logger.error("Failed to obtain OB service token: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to obtain OB service token: " + e.getMessage(), e);
+        }
+    }
+    return serviceToken;
+}
+```
+
+## 4. Modify the createUser method for Outbound group
+
+```java
+if("Outbound".equals(userGroup.getName())) {
+    // Using WebSocket instead of RestTemplate
+    try {
+        String response = webSocketService.sendAndReceive(
+            "/users/createUser",
+            request,
+            String.class,
+            5000 // 5 second timeout
+        );
+        
+        logger.debug("User creation response via WebSocket: {}", response);
+        return;
+    } catch (Exception e) {
+        logger.error("Failed to create user via WebSocket: {}", e.getMessage(), e);
+        throw new RuntimeException("Failed to create user via WebSocket: " + e.getMessage(), e);
+    }
+}
+```
+
+## 5. WebSocket Controller on the Other Side
+
+The other service (that was previously receiving REST calls) would need a WebSocket controller:
+
+```java
+@Controller
+public class UserWebSocketController {
+
+    @Autowired
+    private UserService userService;
+
+    @MessageMapping("/auth/login")
+    @SendToUser("/queue/reply")
+    public Map<String, Object> handleLogin(Map<String, String> loginRequest) {
+        // Authentication logic here
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", "generated-jwt-token");
+        return response;
+    }
+
+    @MessageMapping("/users/createUser")
+    @SendToUser("/queue/reply")
+    public String handleUserCreation(UserCreateRequest request) {
+        // User creation logic here
+        return "User created successfully";
+    }
+}
+```
+
+## Important Considerations:
+
+1. **Request-Response Pattern**: WebSocket is inherently push-based, so implementing request-response requires additional work (like temporary queues).
+
+2. **Error Handling**: WebSocket error handling is different from REST. You'll need to implement proper error channels.
+
+3. **Security**: WebSocket connections need proper authentication/authorization.
+
+4. **Performance**: WebSocket maintains persistent connections which can be more efficient for frequent communication.
+
+5. **State Management**: The connection state needs to be managed carefully.
+
+6. **Timeouts**: You need to implement proper timeout handling for requests.
+
+For a production system, you might want to consider:
+- Using STOMP protocol for messaging
+- Implementing proper correlation IDs for request matching
+- Adding WebSocket connection health checks
+- Implementing reconnection logic
+- Adding proper security (JWT over WebSocket)
+
+The transition from REST to WebSocket is non-trivial and requires changes on both client and server sides. Make sure this architectural change aligns with your overall system design requirements.
