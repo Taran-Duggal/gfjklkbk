@@ -1,0 +1,72 @@
+2025-07-25 14:14:36.128 [http-nio-9090-exec-4] WARN  c.i.s.CustomUserDetailsService [?:?] - Authentication failed - user not found
+
+2025-07-25 14:14:36.128 [http-nio-9090-exec-4] ERROR c.i.security.JwtAuthenticationFilter [?:?] - Authentication error: Authentication failed
+
+2025-07-25 14:17:00.617 [http-nio-9090-exec-8] ERROR c.i.exception.GlobalExceptionHandler [?:?] - Unexpected error for URL: http://localhost:9090/kms/api/v1/auth/login - Error: User not found
+
+java.lang.RuntimeException: User not found
+
+	at com.indianBank.service.Impl.AuthServiceImpl.lambda$authenticate$0(AuthServiceImpl.java:46)
+
+	at java.base/java.util.Optional.orElseThrow(Optional.java:403)
+
+	at com.indianBank.service.Impl.AuthServiceImpl.authenticate(AuthServiceImpl.java:46)
+
+	at com.indianBank.controller.AuthController.authenticate(AuthController.java:27)
+
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:207)
+
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:152)
+
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:117)
+
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:884)
+
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:797)
+
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1080)
+
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:973)
+
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1003)
+
+	at org.springframework.web.servlet.FrameworkServlet.doPost(FrameworkServlet.java:906)
+
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:590)
+
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:880)
+
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:658)
+
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:195)
+
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)
+
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51)
+
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)
+
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)
+
+	at org.apache.catalina.filters.HttpHeaderSecurityFilter.doFilter(HttpHeaderSecurityFilter.java:129)
+
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)
+
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)
+
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:110)
+
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:164)
+
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:140)
+ 
