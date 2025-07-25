@@ -1,0 +1,351 @@
+package com.indianBank.config;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.servlet.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+@Component
+public class InputValidationFilter implements Filter {
+
+    private static final Logger logger = LoggerFactory.getLogger(InputValidationFilter.class);
+
+    // Comprehensive malicious patterns for ALL requests
+    private static final Pattern[] MALICIOUS_PATTERNS = {
+            // SQL Injection patterns
+            Pattern.compile("(?i).*(union\\s+select|drop\\s+table|insert\\s+into|delete\\s+from).*"),
+            Pattern.compile("(?i).*(or\\s+1\\s*=\\s*1|and\\s+1\\s*=\\s*1|'\\s*or\\s*'1'\\s*=\\s*'1).*"),
+            Pattern.compile("(?i).*('\\s*;|--;|/\\*|\\*/|xp_|sp_).*"),
+            Pattern.compile("(?i).*(exec\\s*\\(|execute\\s*\\().*"),
+            Pattern.compile(".*\\b(1\\s*=\\s*1|2\\s*=\\s*2|'\\s*=\\s*'|\"\\s*=\\s*\").*"),
+            Pattern.compile("(?i).*(drop|truncate|alter)\\s+(table|database).*"),
+            Pattern.compile("(?i).*('\\s*or\\s*'|\"\\s*or\\s*\"|'\\s*and\\s*'|\"\\s*and\\s*\").*"),
+
+            // XSS patterns
+            Pattern.compile("(?i).*(<script|javascript:|vbscript:|onload\\s*=|onerror\\s*=).*"),
+            Pattern.compile("(?i).*(alert\\s*\\(|confirm\\s*\\(|prompt\\s*\\().*"),
+            Pattern.compile("(?i).*(<iframe|<object|<embed|<link|<meta).*"),
+            Pattern.compile("(?i).*(onclick|onmouseover|onfocus|onblur)\\s*=.*"),
+
+            // Command injection patterns
+            Pattern.compile("(?i).*(\\|\\||&&|;\\s*ls|;\\s*cat|;\\s*rm|;\\s*dir|\\$\\().*"),
+            Pattern.compile("(?i).*(cmd\\.exe|powershell|bash|sh\\s).*"),
+            Pattern.compile("(?i).*(system\\s*\\(|exec\\s*\\(|eval\\s*\\(|passthru).*"),
+
+            // Path traversal patterns
+            Pattern.compile("(?i).*(\\.\\./|\\.\\.\\\\/etc/passwd|/etc/shadow|\\.\\.\\\\windows).*"),
+            Pattern.compile("(?i).*(\\.\\.[\\\\/]){2,}.*"),
+
+            // LDAP injection patterns
+            Pattern.compile("(?i).*[\\(\\)\\*\\\\\\|&].*"),
+
+            // XML/XXE patterns
+            Pattern.compile("(?i).*(<!DOCTYPE|<!ENTITY|SYSTEM\\s+[\"']).*"),
+
+            // NoSQL injection patterns
+            Pattern.compile("(?i).*\\$where.*"),
+            Pattern.compile("(?i).*\\{\\s*\\$.*\\}.*")
+    };
+
+    // Safe pagination and filter patterns (exceptions)
+    private static final Pattern[] SAFE_PATTERNS = {
+            Pattern.compile("^page=\\d+$"),
+            Pattern.compile("^size=\\d+$"),
+            Pattern.compile("^sort=[a-zA-Z0-9_.,+-]+$"),
+            Pattern.compile("^page=\\d+&size=\\d+$"),
+            Pattern.compile("^size=\\d+&page=\\d+$"),
+            Pattern.compile("^page=\\d+&size=\\d+&sort=[a-zA-Z0-9_.,+-]+$"),
+            Pattern.compile("^[a-zA-Z0-9_]+Id=\\d+$"),
+            Pattern.compile("^status=[a-zA-Z_-]+$"),
+            Pattern.compile("^activeYn=[YN]$")
+    };
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+
+        HttpServletRequest httpRequest = (HttpServletRequest) request;
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+        String uri = httpRequest.getRequestURI();
+        String queryString = httpRequest.getQueryString();
+        String method = httpRequest.getMethod();
+
+        // Skip validation only for static resources
+        if (isStaticResource(uri)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // Validate query parameters for ALL HTTP methods
+        if (queryString != null && !isQueryStringSafe(queryString)) {
+            logger.warn("Malicious query string blocked: Method={}, URI={}, Query={}", method, uri, queryString);
+            blockRequest(httpResponse, "Invalid query parameters detected");
+            return;
+        }
+
+        // Validate request body for ALL methods that can have body content
+        if (hasRequestBody(method)) {
+            CachedBodyHttpServletRequest wrappedRequest = new CachedBodyHttpServletRequest(httpRequest);
+            String body = wrappedRequest.getCachedBody();
+
+            if (body != null && !body.trim().isEmpty() && !isRequestBodySafe(body)) {
+                logger.warn("Malicious request body blocked: Method={}, URI={}, BodyLength={}",
+                        method, uri, body.length());
+                logger.debug("Blocked body content: {}", body.length() > 500 ? body.substring(0, 500) + "..." : body);
+                blockRequest(httpResponse, "Invalid request content detected");
+                return;
+            }
+
+            chain.doFilter(wrappedRequest, response);
+        } else {
+            chain.doFilter(request, response);
+        }
+    }
+
+    private boolean isStaticResource(String uri) {
+        return uri.endsWith(".css") ||
+                uri.endsWith(".js") ||
+                uri.endsWith(".png") ||
+                uri.endsWith(".jpg") ||
+                uri.endsWith(".jpeg") ||
+                uri.endsWith(".gif") ||
+                uri.endsWith(".ico") ||
+                uri.endsWith(".svg") ||
+                uri.endsWith(".woff") ||
+                uri.endsWith(".woff2") ||
+                uri.endsWith(".ttf") ||
+                uri.contains("/static/") ||
+                uri.contains("/assets/");
+    }
+
+    private boolean hasRequestBody(String method) {
+        return "POST".equals(method) ||
+                "PUT".equals(method) ||
+                "PATCH".equals(method) ||
+                "DELETE".equals(method); // Some DELETE requests have body
+    }
+
+    private boolean isQueryStringSafe(String queryString) {
+        if (queryString == null || queryString.trim().isEmpty()) {
+            return true;
+        }
+
+        // Check if entire query string matches safe patterns
+        for (Pattern safePattern : SAFE_PATTERNS) {
+            if (safePattern.matcher(queryString).matches()) {
+                return true;
+            }
+        }
+
+        // Check for safe pagination combinations
+        if (isSafePaginationQuery(queryString)) {
+            return true;
+        }
+
+        // Check each parameter individually
+        String[] parameters = queryString.split("&");
+        for (String param : parameters) {
+            if (!isParameterSafe(param)) {
+                logger.debug("Unsafe parameter detected: {}", param);
+                return false;
+            }
+        }
+
+        // Check for malicious patterns in entire query string
+        return !containsMaliciousContent(queryString);
+    }
+
+    private boolean isSafePaginationQuery(String queryString) {
+        // Common safe pagination combinations
+        return queryString.matches("^page=\\d+&size=\\d+(&sort=[a-zA-Z0-9_.,+-]+)?$") ||
+                queryString.matches("^size=\\d+&page=\\d+(&sort=[a-zA-Z0-9_.,+-]+)?$") ||
+                queryString.matches("^page=\\d+&size=\\d+&status=[a-zA-Z_-]+$") ||
+                queryString.matches("^page=\\d+&size=\\d+&activeYn=[YN]$");
+    }
+
+    private boolean isParameterSafe(String parameter) {
+        if (parameter == null || parameter.trim().isEmpty()) {
+            return true;
+        }
+
+        // Check against safe patterns first
+        for (Pattern safePattern : SAFE_PATTERNS) {
+            if (safePattern.matcher(parameter).matches()) {
+                return true;
+            }
+        }
+
+        // Allow simple search terms (alphanumeric, space, hyphen, underscore, dot)
+        if (parameter.matches("^search=[a-zA-Z0-9\\s%._-]*$")) {
+            String value = parameter.substring(parameter.indexOf('=') + 1);
+            return !containsMaliciousContent(value);
+        }
+
+        // Check for malicious content
+        return !containsMaliciousContent(parameter);
+    }
+
+    private boolean isRequestBodySafe(String body) {
+        if (body == null || body.trim().isEmpty()) {
+            return true;
+        }
+
+        // Check for malicious patterns
+        if (containsMaliciousContent(body)) {
+            return false;
+        }
+
+        // Additional JSON-specific validation
+        if (body.trim().startsWith("{") && body.trim().endsWith("}")) {
+            return isJsonContentSafe(body);
+        }
+
+        // Additional XML validation
+        if (body.trim().startsWith("<")) {
+            return isXmlContentSafe(body);
+        }
+
+        return true;
+    }
+
+    private boolean containsMaliciousContent(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return false;
+        }
+
+        // URL decode the input to catch encoded attacks
+        String decodedInput;
+        try {
+            decodedInput = java.net.URLDecoder.decode(input, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            decodedInput = input;
+        }
+
+        // Check both original and decoded input
+        return checkMaliciousPatterns(input) || checkMaliciousPatterns(decodedInput);
+    }
+
+    private boolean checkMaliciousPatterns(String input) {
+        // Check against all malicious patterns
+        for (Pattern pattern : MALICIOUS_PATTERNS) {
+            if (pattern.matcher(input).find()) {
+                logger.debug("Malicious pattern detected: {} in input: {}", pattern.pattern(),
+                        input.length() > 100 ? input.substring(0, 100) + "..." : input);
+                return true;
+            }
+        }
+
+        // Additional specific checks
+        String lowerInput = input.toLowerCase();
+
+        // Check for encoded attacks
+        if (lowerInput.contains("%3cscript") ||
+                lowerInput.contains("%27%20or%20") ||
+                lowerInput.contains("%22%20or%20") ||
+                lowerInput.contains("&#x") ||
+                lowerInput.contains("&#")) {
+            return true;
+        }
+
+        // Check for common bypass attempts
+        if (lowerInput.contains("/**/") ||
+                lowerInput.contains("char(") ||
+                lowerInput.contains("ascii(") ||
+                lowerInput.contains("substring(") ||
+                lowerInput.contains("concat(")) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean isJsonContentSafe(String jsonBody) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(jsonBody);
+            return validateJsonNode(jsonNode);
+        } catch (Exception e) {
+            logger.warn("Invalid JSON format in request body: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean validateJsonNode(JsonNode node) {
+        if (node.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                String fieldName = field.getKey();
+                JsonNode fieldValue = field.getValue();
+
+                // Check field name for malicious content
+                if (containsMaliciousContent(fieldName)) {
+                    return false;
+                }
+
+                // Recursively check field value
+                if (!validateJsonNode(fieldValue)) {
+                    return false;
+                }
+            }
+        } else if (node.isArray()) {
+            for (JsonNode arrayElement : node) {
+                if (!validateJsonNode(arrayElement)) {
+                    return false;
+                }
+            }
+        } else if (node.isTextual()) {
+            String value = node.asText();
+            if (containsMaliciousContent(value)) {
+                logger.debug("Malicious content found in JSON value: {}", value);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private boolean isXmlContentSafe(String xmlBody) {
+        // Basic XML safety checks
+        String lowerXml = xmlBody.toLowerCase();
+
+        // Check for XXE attempts
+        if (lowerXml.contains("<!doctype") ||
+                lowerXml.contains("<!entity") ||
+                lowerXml.contains("system ") ||
+                lowerXml.contains("public ")) {
+            return false;
+        }
+
+        // Check for malicious content in XML
+        return !containsMaliciousContent(xmlBody);
+    }
+
+    private void blockRequest(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        String jsonResponse = String.format(
+                "{\"error\":\"Security violation\",\"message\":\"%s\",\"timestamp\":\"%s\",\"code\":\"SEC001\"}",
+                message,
+                Instant.now().toString()
+        );
+
+        response.getWriter().write(jsonResponse);
+        response.getWriter().flush();
+    }
+}
