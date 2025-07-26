@@ -1,0 +1,157 @@
+@Entity
+@Table(name = "location_master")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Location {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "location_id")
+    private Long locationId;
+    
+    private String name;
+    
+    @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<User> users = new HashSet<>();
+    
+    // Automatic user management
+    public void assignUser(User user) {
+        users.add(user);
+        user.setLocation(this);
+    }
+    
+    public void removeUser(User user) {
+        users.remove(user);
+        user.setLocation(null);
+    }
+}
+
+
+@Entity
+@Table(name = "department_master")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Department {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "department_id")
+    private Long departmentId;
+    
+    private String name;
+    
+    @OneToMany(mappedBy = "department", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<User> users = new HashSet<>();
+    
+    // Automatic user management
+    public void assignUser(User user) {
+        users.add(user);
+        user.setDepartment(this);
+    }
+    
+    public void removeUser(User user) {
+        users.remove(user);
+        user.setDepartment(null);
+    }
+}
+
+@Entity
+@Table(name = "role_master")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Role {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "role_id")
+    private Long roleId;
+    
+    private String name;
+    
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<User> users = new HashSet<>();
+    
+    // Automatic user management
+    public void addUser(User user) {
+        users.add(user);
+        user.setRole(this);
+    }
+    
+    public void removeUser(User user) {
+        users.remove(user);
+        user.setRole(null);
+    }
+}
+
+@Entity
+@Table(name = "user_master")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class User {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
+    private Long userId;
+    
+    // Other fields...
+    
+    // Relationships with automatic handling
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reports_to_id")
+    private User reportsTo;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id", nullable = false)
+    private Location location;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id", nullable = false)
+    private Department department;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
+    
+    // Automatic relationship management methods
+    public void assignManager(User manager) {
+        this.reportsTo = manager;
+    }
+    
+    public void updateLocation(Location newLocation) {
+        this.location = newLocation;
+    }
+    
+    public void transferDepartment(Department newDepartment) {
+        this.department = newDepartment;
+    }
+    
+    public void changeRole(Role newRole) {
+        this.role = newRole;
+    }
+}
+
+# application.properties
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.hbm2ddl.auto=update
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+spring.jpa.properties.hibernate.jdbc.batch_size=20
+spring.jpa.properties.hibernate.order_inserts=true
+spring.jpa.properties.hibernate.order_updates=true
