@@ -1,0 +1,432 @@
+package com.indianBank.model;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "user_master")
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
+    private Long userId;
+
+    @Column(name = "login_id", length = 100)
+    private String loginId;
+
+    @Column(name = "name", length = 200)
+    private String name;
+
+    @Column(name = "first_name", length = 50)
+    private String firstName;
+
+    @Column(name = "middle_name", length = 50)
+    private String middleName;
+
+    @Column(name = "last_name", length = 50)
+    private String lastName;
+
+    @Column(name = "password", length = 200)
+    private String password;
+
+    @ManyToOne
+    @JoinColumn(name = "reports_to_id")
+    private User reportsToId;
+
+    @Column(name = "phone_no", length = 50)
+    private String phoneNo;
+
+    @Column(name = "email_id", length = 50)
+    private String emailId;
+
+    @Column(name = "is_crm_user_yn")
+    private Character isCrmUserYn;
+
+    @Column(name = "employee_code", length = 50)
+    private String employeeCode;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "created_on")
+    private LocalDateTime createdOn;
+
+    @Column(name = "active_Yn", length = 1)
+    private Character activeYn;
+
+    @Column(name = "modified_by")
+    private Long modifiedBy;
+
+    @Column(name = "modified_on")
+    private LocalDateTime modifiedOn;
+
+    @Column(name = "cti_username", length = 100)
+    private String ctiUsername;
+
+    @Column(name = "cti_password", length = 200)
+    private String ctiPassword;
+
+    @Column(name = "pwd_updated_on")
+    private LocalDateTime pwdUpdatedOn;
+
+    @Column(name = "password_history", length = 500)
+    private String passwordHistory;
+
+    @Column(name = "account_lock", length = 1)
+    private String accountLock = "N";
+
+    @Column(name = "failed_login_attempts")
+    private Integer failedLoginAttempts = 0;
+
+    @Column(name = "lock_time", length = 5)
+    private LocalDateTime lockTime;
+
+    @Column(name = "last_login_date")
+    private LocalDateTime lastLoginDate;
+
+//    @Column(name = "pf_number", length = 50)
+//    private String pfNumber;
+
+    @Column(name = "last_logout_date")
+    private LocalDateTime lastLogoutDate;
+
+    @ManyToOne
+    @JoinColumn(name = "location_id", nullable = false)
+    private Location location;
+
+    @ManyToOne
+    @JoinColumn(name = "department_id", nullable = false)
+    private Department department;
+
+    @ManyToOne
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public String getLoginId() {
+        return loginId;
+    }
+
+    public void setLoginId(String loginId) {
+        this.loginId = loginId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getMiddleName() {
+        return middleName;
+    }
+
+    public void setMiddleName(String middleName) {
+        this.middleName = middleName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public User getReportsToId() {
+        return reportsToId;
+    }
+
+    public void setReportsToId(User reportsToId) {
+        this.reportsToId = reportsToId;
+    }
+
+    public String getPhoneNo() {
+        return phoneNo;
+    }
+
+    public void setPhoneNo(String phoneNo) {
+        this.phoneNo = phoneNo;
+    }
+
+    public String getEmailId() {
+        return emailId;
+    }
+
+    public void setEmailId(String emailId) {
+        this.emailId = emailId;
+    }
+
+    public Character getIsCrmUserYn() {
+        return isCrmUserYn;
+    }
+
+    public void setIsCrmUserYn(Character isCrmUserYn) {
+        this.isCrmUserYn = isCrmUserYn;
+    }
+
+    public String getEmployeeCode() {
+        return employeeCode;
+    }
+
+    public void setEmployeeCode(String employeeCode) {
+        this.employeeCode = employeeCode;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public LocalDateTime getCreatedOn() {
+        return createdOn;
+    }
+
+    public void setCreatedOn(LocalDateTime createdOn) {
+        this.createdOn = createdOn;
+    }
+
+    public Character getActiveYn() {
+        return activeYn;
+    }
+
+    public void setActiveYn(Character activeYn) {
+        this.activeYn = activeYn;
+    }
+
+    public Long getModifiedBy() {
+        return modifiedBy;
+    }
+
+    public void setModifiedBy(Long modifiedBy) {
+        this.modifiedBy = modifiedBy;
+    }
+
+    public LocalDateTime getModifiedOn() {
+        return modifiedOn;
+    }
+
+    public void setModifiedOn(LocalDateTime modifiedOn) {
+        this.modifiedOn = modifiedOn;
+    }
+
+    public String getCtiUsername() {
+        return ctiUsername;
+    }
+
+    public void setCtiUsername(String ctiUsername) {
+        this.ctiUsername = ctiUsername;
+    }
+
+    public String getCtiPassword() {
+        return ctiPassword;
+    }
+
+    public void setCtiPassword(String ctiPassword) {
+        this.ctiPassword = ctiPassword;
+    }
+
+    public LocalDateTime getPwdUpdatedOn() {
+        return pwdUpdatedOn;
+    }
+
+    public void setPwdUpdatedOn(LocalDateTime pwdUpdatedOn) {
+        this.pwdUpdatedOn = pwdUpdatedOn;
+    }
+
+    public String getPasswordHistory() {
+        return passwordHistory;
+    }
+
+    public void setPasswordHistory(String passwordHistory) {
+        this.passwordHistory = passwordHistory;
+    }
+
+    public LocalDateTime getLastLoginDate() {
+        return lastLoginDate;
+    }
+
+    public void setLastLoginDate(LocalDateTime lastLoginDate) {
+        this.lastLoginDate = lastLoginDate;
+    }
+
+//    public String getPfNumber() {
+//        return pfNumber;
+//    }
+//
+//    public void setPfNumber(String pfNumber) {
+//        this.pfNumber = pfNumber;
+//    }
+
+    public LocalDateTime getLastLogoutDate() {
+        return lastLogoutDate;
+    }
+
+    public void setLastLogoutDate(LocalDateTime lastLogoutDate) {
+        this.lastLogoutDate = lastLogoutDate;
+    }
+
+    public Location getLocation() {
+        return location;
+    }
+
+    public void setLocation(Location location) {
+        this.location = location;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+
+    public Integer getFailedLoginAttempts() {
+        return failedLoginAttempts != null ? failedLoginAttempts : 0;
+    }
+
+    public void setFailedLoginAttempts(Integer failedLoginAttempts) {
+        this.failedLoginAttempts = failedLoginAttempts;
+    }
+
+    public LocalDateTime getLockTime() {
+        return lockTime;
+    }
+
+    public void setLockTime(LocalDateTime lockTime) {
+        this.lockTime = lockTime;
+    }
+
+    public String getAccountLock() {
+        return accountLock;
+    }
+
+    public void setAccountLock(String accountLock) {
+        this.accountLock = accountLock;
+    }
+
+}
+
+package com.indianBank.model;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+import java.util.Set;
+
+@Entity
+@Table(name = "role_master")
+public class Role {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "role_id")
+    private Long roleId;
+
+    @Column(name = "name", length = 50)
+    private String name;
+
+    @Column(name = "level_no")
+    private Integer levelNo;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "created_on")
+    private LocalDateTime createdOn;
+
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<User> users;
+
+
+    public Long getRoleId() {
+        return roleId;
+    }
+
+    public void setRoleId(Long roleId) {
+        this.roleId = roleId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Integer getLevelNo() {
+        return levelNo;
+    }
+
+    public void setLevelNo(Integer levelNo) {
+        this.levelNo = levelNo;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public LocalDateTime getCreatedOn() {
+        return createdOn;
+    }
+
+    public void setCreatedOn(LocalDateTime createdOn) {
+        this.createdOn = createdOn;
+    }
+
+    public Set<User> getUsers() {
+        return users;
+    }
+
+    public void setUsers(Set<User> users) {
+        this.users = users;
+    }
+}
+        ... 133 common frames omitted
+2025-07-26 17:07:03.370 [main] WARN  o.h.t.s.i.ExceptionHandlerLoggedImpl - GenerationTarget encountered exception accepting command : Error executing DDL "alter table user_master add constraint FK1x293n7g7893ckodvych27egl foreign key (role_id) references role_master (role_id)" via JDBC Statement
+org.hibernate.tool.schema.spi.CommandAcceptanceException: Error executing DDL "alter table user_master add constraint FK1x293n7g7893ckodvych27egl foreign key (role_id) references role_master (role_id)" via JDBC Statement
+        at org.hibernate.tool.schema.internal.exec.GenerationTargetToDatabase.accept(GenerationTargetToDatabase.java:67)
