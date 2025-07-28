@@ -1,0 +1,111 @@
+## SSL Configuration
+server.ssl.enabled=${SERVER_SSL_ENABLED:true}
+server.ssl.key-store=${SERVER_SSL_KEY_STORE:classpath:localhost-rsa.jks}
+server.ssl.key-store-password=${SERVER_SSL_KEY_STORE_PASSWORD:changeit}
+server.ssl.key-store-type=${SERVER_SSL_KEY_STORE_TYPE:JKS}
+server.ssl.key-alias=${SERVER_SSL_KEY_ALIAS:localhost}
+
+# Force HTTPS
+security.require-ssl=${SERVER_SECURITY_REQUIRE_SSL:true}
+
+# Additional security
+server.ssl.protocol=${SERVER_SSL_PROTOCOL:TLS}
+server.ssl.enabled-protocols=${SERVER_SSL_ENABLED_PROTOCOLS:TLSv1.2,TLSv1.3}
+#server.ssl.client-auth=${SERVER_SSL_CLIENT_AUTH}
+#server.ssl.key-password=${SERVER_SSL_KEY_PASSWORD}
+server.tomcat.remoteip.protocol-header=x-forwarded-proto
+server.tomcat.remoteip.remote-ip-header=x-forwarded-for
+server.tomcat.remoteip.internal-proxies=.*
+
+
+# Trust store configuration
+server.ssl.trust-store=classpath:localhost-rsa.jks
+server.ssl.trust-store-password=changeit
+server.ssl.trust-store-type=JKS
+
+# For RestTemplate calls
+trust.store=classpath:localhost-rsa.jks
+trust.store.password=changeit
+
+
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2025-07-29 02:05:41.772 [main] ERROR o.s.boot.SpringApplication - Application run failed
+org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+	at org.springframework.context.support.DefaultLifecycleProcessor.doStart(DefaultLifecycleProcessor.java:181)
+	at org.springframework.context.support.DefaultLifecycleProcessor$LifecycleGroup.start(DefaultLifecycleProcessor.java:356)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at org.springframework.context.support.DefaultLifecycleProcessor.startBeans(DefaultLifecycleProcessor.java:155)
+	at org.springframework.context.support.DefaultLifecycleProcessor.onRefresh(DefaultLifecycleProcessor.java:123)
+	at org.springframework.context.support.AbstractApplicationContext.finishRefresh(AbstractApplicationContext.java:932)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:587)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:730)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:432)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:308)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1302)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1291)
+	at com.indianBank.KmsApplication.main(KmsApplication.java:17)
+Caused by: org.springframework.boot.web.server.WebServerException: Unable to start embedded Tomcat server
+	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.start(TomcatWebServer.java:235)
+	at org.springframework.boot.web.servlet.context.WebServerStartStopLifecycle.start(WebServerStartStopLifecycle.java:44)
+	at org.springframework.context.support.DefaultLifecycleProcessor.doStart(DefaultLifecycleProcessor.java:178)
+	... 13 common frames omitted
+Caused by: java.lang.IllegalArgumentException: standardService.connector.startFailed
+	at org.apache.catalina.core.StandardService.addConnector(StandardService.java:238)
+	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.addPreviouslyRemovedConnectors(TomcatWebServer.java:288)
+	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.start(TomcatWebServer.java:219)
+	... 15 common frames omitted
+Caused by: org.apache.catalina.LifecycleException: Protocol handler start failed
+	at org.apache.catalina.connector.Connector.startInternal(Connector.java:1085)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:183)
+	at org.apache.catalina.core.StandardService.addConnector(StandardService.java:234)
+	... 17 common frames omitted
+Caused by: java.lang.IllegalArgumentException: the trustAnchors parameter must be non-empty
+	at org.apache.tomcat.util.net.AbstractJsseEndpoint.createSSLContext(AbstractJsseEndpoint.java:106)
+	at org.apache.tomcat.util.net.AbstractJsseEndpoint.initialiseSsl(AbstractJsseEndpoint.java:70)
+	at org.apache.tomcat.util.net.NioEndpoint.bind(NioEndpoint.java:206)
+	at org.apache.tomcat.util.net.AbstractEndpoint.bindWithCleanup(AbstractEndpoint.java:1172)
+	at org.apache.tomcat.util.net.AbstractEndpoint.start(AbstractEndpoint.java:1258)
+	at org.apache.coyote.AbstractProtocol.start(AbstractProtocol.java:588)
+	at org.apache.catalina.connector.Connector.startInternal(Connector.java:1082)
+	... 19 common frames omitted
+Caused by: java.security.InvalidAlgorithmParameterException: the trustAnchors parameter must be non-empty
+	at java.base/java.security.cert.PKIXParameters.setTrustAnchors(PKIXParameters.java:200)
+	at java.base/java.security.cert.PKIXParameters.<init>(PKIXParameters.java:157)
+	at java.base/java.security.cert.PKIXBuilderParameters.<init>(PKIXBuilderParameters.java:130)
+	at org.apache.tomcat.util.net.SSLUtilBase.getParameters(SSLUtilBase.java:502)
+	at org.apache.tomcat.util.net.SSLUtilBase.getTrustManagers(SSLUtilBase.java:433)
+	at org.apache.tomcat.util.net.SSLUtilBase.createSSLContext(SSLUtilBase.java:247)
+	at org.apache.tomcat.util.net.AbstractJsseEndpoint.createSSLContext(AbstractJsseEndpoint.java:104)
+	... 25 common frames omitted
+
+
+25-07-29 01:26:49 [https-openssl-nio-9090-exec-4] ERROR c.d.s.impl.ScriptSearchServiceImpl - Failed to obtain KMS service token: I/O error on POST request for "https://localhost:9090/kms/api/v1/auth/login": PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+
+org.springframework.web.client.ResourceAccessException: I/O error on POST request for "https://localhost:9090/kms/api/v1/auth/login": PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+
+	at org.springframework.web.client.RestTemplate.createResourceAccessException(RestTemplate.java:915)
+
+	at org.springframework.web.client.RestTemplate.doExecute(RestTemplate.java:895)
+
+	at org.springframework.web.client.RestTemplate.execute(RestTemplate.java:790)
+
+	at org.springframework.web.client.RestTemplate.exchange(RestTemplate.java:672)
+
+	at com.demsIB.service.impl.ScriptSearchServiceImpl.getServiceToken(ScriptSearchServiceImpl.java:91)
+
+	at com.demsIB.service.impl.ScriptSearchServiceImpl.getFrequentlyAccessedScripts(ScriptSearchServiceImpl.java:308)
+
+	at com.demsIB.controller.ScriptSearchController.getFrequentlyAccessedScripts(ScriptSearchController.java:110)
+
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:255)
+ 
