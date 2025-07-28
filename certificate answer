@@ -1,1 +1,126 @@
+# SSL Configuration Analysis and Solution
 
+Based on your error logs, there are two main issues:
+
+1. **Trust Store Problem**: `the trustAnchors parameter must be non-empty` - This indicates your trust store isn't properly configured or isn't being loaded correctly.
+
+2. **Certificate Validation Problem**: `unable to find valid certification path to requested target` - This occurs when inter-service calls can't validate each other's certificates.
+
+## Solution Steps
+
+### 1. Fix the Trust Store Configuration
+
+Your current configuration shows both keystore and truststore pointing to the same file (`localhost-rsa.jks`). This might be the root cause.
+
+```properties
+# Current configuration
+server.ssl.key-store=classpath:localhost-rsa.jks
+server.ssl.trust-store=classpath:localhost-rsa.jks
+```
+
+**Recommendation**:
+- Create separate JKS files for keystore (containing your certificate) and truststore (containing trusted certificates)
+- Or ensure your single JKS file contains both your certificate and the CA certificate that signed it
+
+### 2. Proper SSL Configuration
+
+Here's a corrected configuration:
+
+```properties
+# Keystore configuration (your certificate)
+server.ssl.enabled=true
+server.ssl.key-store=classpath:keystore.jks
+server.ssl.key-store-password=changeit
+server.ssl.key-store-type=JKS
+server.ssl.key-alias=localhost
+server.ssl.key-password=changeit  # Add this if your key has separate password
+
+# Truststore configuration (trusted certificates)
+server.ssl.trust-store=classpath:truststore.jks
+server.ssl.trust-store-password=changeit
+server.ssl.trust-store-type=JKS
+
+# Protocols
+server.ssl.protocol=TLS
+server.ssl.enabled-protocols=TLSv1.2,TLSv1.3
+
+# For RestTemplate to trust the certificates
+trust.store=classpath:truststore.jks
+trust.store.password=changeit
+```
+
+### 3. Creating Proper Keystore and Truststore
+
+1. **Export your certificate**:
+   ```bash
+   keytool -exportcert -alias localhost -file localhost.crt -keystore localhost-rsa.jks -storepass changeit
+   ```
+
+2. **Create a new truststore**:
+   ```bash
+   keytool -importcert -alias localhost -file localhost.crt -keystore truststore.jks -storepass changeit
+   ```
+
+3. Place both `keystore.jks` (your original) and `truststore.jks` in your resources folder.
+
+### 4. Configure RestTemplate to Use Truststore
+
+Add this to your Spring configuration:
+
+```java
+@Bean
+public RestTemplate restTemplate() throws Exception {
+    SSLContext sslContext = new SSLContextBuilder()
+        .loadTrustMaterial(
+            new ClassPathResource("truststore.jks").getURL(),
+            "changeit".toCharArray()
+        ).build();
+    
+    HttpClient client = HttpClients.custom()
+        .setSSLContext(sslContext)
+        .build();
+    
+    HttpComponentsClientHttpRequestFactory requestFactory = 
+        new HttpComponentsClientHttpRequestFactory(client);
+    
+    return new RestTemplate(requestFactory);
+}
+```
+
+### 5. Verify Certificate Chain
+
+Ensure your certificate is properly chained to a trusted CA. If using self-signed certificates:
+- Make sure all services trust each other's certificates
+- Or disable certificate validation (not recommended for production):
+
+```java
+@Bean
+public RestTemplate restTemplate() throws Exception {
+    TrustStrategy acceptingTrustStrategy = (cert, authType) -> true;
+    SSLContext sslContext = SSLContexts.custom()
+        .loadTrustMaterial(null, acceptingTrustStrategy)
+        .build();
+    
+    HttpClient client = HttpClients.custom()
+        .setSSLContext(sslContext)
+        .build();
+    
+    return new RestTemplate(new HttpComponentsClientHttpRequestFactory(client));
+}
+```
+
+## Additional Checks
+
+1. Verify your certificate is valid:
+   ```bash
+   keytool -list -v -keystore localhost-rsa.jks
+   ```
+
+2. Check the aliases in your keystore:
+   ```bash
+   keytool -list -keystore localhost-rsa.jks -storepass changeit
+   ```
+
+3. Make sure the `localhost` alias exists in your keystore.
+
+This should resolve both the Tomcat startup error and the inter-service communication issues.
