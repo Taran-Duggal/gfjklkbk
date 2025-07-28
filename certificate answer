@@ -124,3 +124,185 @@ public RestTemplate restTemplate() throws Exception {
 3. Make sure the `localhost` alias exists in your keystore.
 
 This should resolve both the Tomcat startup error and the inter-service communication issues.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Since you're using Spring Boot 3.0.0 and facing issues with the SSL configuration classes (`SSLContexts`, `SSLContextBuilder`, `HttpClients`), here's how to properly configure HTTPS with the available classes in Spring Boot 3.x.
+
+## Updated Solution for Spring Boot 3.0.0
+
+### 1. First, fix your `application.properties`/`application.yml`:
+
+```properties
+# SSL Configuration
+server.ssl.enabled=true
+server.ssl.key-store=classpath:keystore.jks
+server.ssl.key-store-password=changeit
+server.ssl.key-store-type=JKS
+server.ssl.key-alias=localhost
+server.ssl.key-password=changeit
+
+# Trust store configuration (only needed if making HTTPS calls to other services)
+server.ssl.trust-store=classpath:truststore.jks
+server.ssl.trust-store-password=changeit
+server.ssl.trust-store-type=JKS
+
+# Protocols
+server.ssl.protocol=TLS
+server.ssl.enabled-protocols=TLSv1.2,TLSv1.3
+```
+
+### 2. For RestTemplate configuration in Spring Boot 3.0.0:
+
+```java
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import javax.net.ssl.SSLContext;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+
+@Configuration
+public class RestTemplateConfig {
+
+    @Bean
+    public RestTemplate restTemplate() throws KeyStoreException, NoSuchAlgorithmException, 
+            KeyManagementException, UnrecoverableKeyException {
+        
+        // Create SSL context (modify as needed for your trust strategy)
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, null, null); // Using default trust managers
+        
+        // Create socket factory
+        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext);
+        
+        // Create connection manager
+        HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                .setSSLSocketFactory(socketFactory)
+                .build();
+        
+        // Create HTTP client
+        org.apache.hc.client5.http.impl.classic.CloseableHttpClient httpClient = HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .evictExpiredConnections()
+                .build();
+        
+        // Create request factory
+        HttpComponentsClientHttpRequestFactory requestFactory = 
+                new HttpComponentsClientHttpRequestFactory(httpClient);
+        
+        return new RestTemplate(requestFactory);
+    }
+}
+```
+
+### 3. If you need to customize SSL trust (for self-signed certificates):
+
+```java
+import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.apache.hc.core5.ssl.TrustStrategy;
+import java.security.cert.X509Certificate;
+
+// Modify the restTemplate() method to accept self-signed certificates
+@Bean
+public RestTemplate restTemplate() throws Exception {
+    TrustStrategy acceptingTrustStrategy = (X509Certificate[] chain, String authType) -> true;
+    
+    SSLContext sslContext = SSLContextBuilder.create()
+            .loadTrustMaterial(null, acceptingTrustStrategy)
+            .build();
+    
+    SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext);
+    
+    HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+            .setSSLSocketFactory(socketFactory)
+            .build();
+    
+    org.apache.hc.client5.http.impl.classic.CloseableHttpClient httpClient = HttpClients.custom()
+            .setConnectionManager(connectionManager)
+            .evictExpiredConnections()
+            .build();
+    
+    return new RestTemplate(new HttpComponentsClientHttpRequestFactory(httpClient));
+}
+```
+
+### 4. Required Dependencies
+
+Make sure you have these dependencies in your `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>org.apache.httpcomponents.client5</groupId>
+    <artifactId>httpclient5</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.apache.httpcomponents.core5</groupId>
+    <artifactId>httpcore5</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.apache.httpcomponents.core5</groupId>
+    <artifactId>httpcore5-h2</artifactId>
+</dependency>
+```
+
+### 5. Alternative (Simpler) Approach
+
+If you're only making HTTPS calls and don't need custom SSL configuration, you can use:
+
+```java
+@Bean
+public RestTemplate restTemplate() {
+    return new RestTemplate();
+}
+```
+
+And configure SSL properties in `application.properties` as shown above. Spring Boot will automatically configure the SSL context based on your properties.
+
+### Key Differences from Spring Boot 2.x:
+
+1. Apache HttpClient 5.x is now the default (instead of 4.x)
+2. Package names have changed:
+   - `org.apache.http` → `org.apache.hc.client5.http`
+   - `org.apache.httpcomponents` → `org.apache.hc.client5`
+3. Some classes have been renamed or reorganized
+
+This configuration should work with Spring Boot 3.0.0 and handle your HTTPS requirements, including inter-service communication with SSL.
