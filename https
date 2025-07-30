@@ -1,0 +1,48 @@
+cd C:\Program Files\Apache Software Foundation\Tomcat\conf
+keytool -genkeypair -alias localhost -keyalg RSA -keysize 2048 -storetype JKS -keystore localhost-rsa.jks -validity 365 -storepass changeit -keypass changeit -dname "CN=localhost, OU=IT, O=Company, L=City, S=State, C=IN" -ext SAN=dns:azibdrcrmauat,dns:localhost,ip:127.0.0.1
+
+keytool -exportcert -alias localhost -keystore localhost-rsa.jks -file localhost-rsa.crt -storepass changeit
+
+keytool -import -alias localhost -file localhost-rsa.crt -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit
+
+keytool -exportcert -alias localhost -keystore localhost-rsa.jks -file localhost-rsa.crt -storepass changeit -rfc
+
+certutil -addstore "Root" localhost-rsa.crt
+keytool -exportcert -alias localhost -keystore localhost-rsa.jks -file localhost-rsa.crt -storepass changeit -rfc
+keytool -import -alias localhost-custom -file localhost-rsa.crt -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit -noprompt -trustcacerts
+keytool -list -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit | findstr localhost
+keytool -list -keystore "%JAVA_HOME%\lib\security\cacerts" -storepass changeit | findstr localhost
+keytool -list -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit | findstr localhost
+keytool -list -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit | findstr localhost-custom
+keytool -import -alias localhost -file localhost-rsa.crt -keystore custom-truststore.jks -storepass changeit -noprompt
+keytool -importkeystore -srckeystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -destkeystore custom-truststore.jks -srcstorepass changeit -deststorepass changeit -noprompt
+keytool -printcert -sslserver localhost:9090
+Catalina.bat 
+set JAVA_OPTS=%JAVA_OPTS% -Dcom.sun.net.ssl.checkRevocation=false -Dtrust_all_cert=true
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStore="C:\Program Files\Zulu\zulu-21\lib\security\cacerts"
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStorePassword=changeit
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.keyStore=conf/localhost-rsa.jks
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.keyStorePassword=changeit
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStore=%CATALINA_HOME%\conf\custom-truststore.jks
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStorePassword=changeit
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStoreType=JKS
+set JAVA_OPTS=%JAVA_OPTS% -Dcom.sun.net.ssl.checkRevocation=false
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.debug=ssl:handshake:verbose
+
+<Connector port="9090" 
+           protocol="org.apache.coyote.http11.Http11NioProtocol"               
+           maxThreads="150" 
+           SSLEnabled="true"               
+           maxParameterCount="1000">
+    <!-- Remove or comment out this line -->
+    <!-- <UpgradeProtocol className="org.apache.coyote.http2.Http2Protocol" /> -->
+    <SSLHostConfig>
+        <Certificate certificateKeystoreFile="conf/localhost-rsa.jks"                         
+                     certificateKeystorePassword="changeit" 
+                     type="RSA" />
+    </SSLHostConfig>
+</Connector>
+
+this all i have done in one server which works completely fine but o another server it is giving this error while calling kms application through inbound application 
+
+[Violation] Potential permissions policy violation: fullscreen is not allowed in this document. insert @ dhqbrvplips7x.cloudf…ager-1-10-oRF.js:17Understand this error [Violation] Potential permissions policy violation: fullscreen is not allowed in this document. insert @ dhqbrvplips7x.cloudf…ager-1-10-oRF.js:17Understand this error [Violation] Potential permissions policy violation: clipboard-write is not allowed in this document. insert @ dhqbrvplips7x.cloudf…ager-1-10-oRF.js:17Understand this error [Violation] Potential permissions policy violation: clipboard-write is not allowed in this document. insert @ dhqbrvplips7x.cloudf…ager-1-10-oRF.js:17Understand this error login.aps1.pure.cloud/session:1  Failed to load resource: the server responded with a status of 401 ()Understand this error login.aps1.pure.cloud/session:1  Failed to load resource: the server responded with a status of 401 ()Understand this error login.aps1.pure.cloud/request/ZSyCb1lbfXSFJJ7LV2nU0xI816JpDD_azr4MCl_gCe0:1  Failed to load resource: the server responded with a status of 401 ()Understand this error login.aps1.pure.cloud/request/ZSyCb1lbfXSFJJ7LV2nU0xI816JpDD_azr4MCl_gCe0:1  Failed to load resource: the server responded with a status of 401 ()Understand this error :9090/inbound/api/v1/frequently-accessed:1  Failed to load resource: the server responded with a status of 500 ()Understand this error :9090/inbound/api/v1/quick-access:1  Failed to load resource: the server responded with a status of 500 ()
