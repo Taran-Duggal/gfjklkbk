@@ -1,0 +1,383 @@
+package com.demsIB.config;
+
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.Duration;
+
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public RestTemplateBuilder restTemplateBuilder() {
+        return new RestTemplateBuilder()
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(10));
+    }
+
+    @Bean
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder.build();
+    }
+}
+
+
+
+package com.demsIB.service.impl;
+
+import com.demsIB.service.ScriptSearchService;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+
+@Service
+public class ScriptSearchServiceImpl implements ScriptSearchService {
+
+    private final RestTemplate restTemplate;
+    private final String kmsBaseUrl = "https://localhost:9090/kms/api/v1";
+
+    private String serviceToken = null;
+    private long tokenExpiryTime = 0;
+    private static final Logger logger = LoggerFactory.getLogger(ScriptSearchServiceImpl.class);
+    private static final byte[] XOR_KEY = "MyAppXORKey!123".getBytes();
+
+    @Value("${kms.service.username}")
+    private String kmsServiceUsername;
+
+    @Value("${kms.service.password}")
+    private String kmsServicePassword;
+
+    public ScriptSearchServiceImpl(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+
+    private String decryptedKmsUsername;
+    private String decryptedKmsPassword;
+
+    @PostConstruct
+    public void init() {
+        this.decryptedKmsUsername = getDecryptedUsername();
+        this.decryptedKmsPassword = getDecryptedKmsPassword();
+        logger.debug("KMS credentials initialized and decrypted");
+    }
+
+    private String getDecryptedKmsPassword() {
+        // Check if secret is encrypted with ENC() format
+        if (kmsServicePassword != null && kmsServicePassword.startsWith("ENC(") && kmsServicePassword.endsWith(")")) {
+            String encrypted = kmsServicePassword.substring(4, kmsServicePassword.length() - 1);
+            return decrypt(encrypted);
+        }
+        return kmsServicePassword;
+    }
+
+    private String getDecryptedUsername() {
+        // Check if username is encrypted with ENC() format
+        if (kmsServiceUsername != null && kmsServiceUsername.startsWith("ENC(") && kmsServiceUsername.endsWith(")")) {
+            String encrypted = kmsServiceUsername.substring(4, kmsServiceUsername.length() - 1);
+            return decrypt(encrypted);
+        }
+        return kmsServiceUsername;
+    }
+
+    private String decrypt(String encrypted) {
+        byte[] bytes = Base64.getDecoder().decode(encrypted);
+        // XOR decryption
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] ^= XOR_KEY[i % XOR_KEY.length];
+        }
+        return new String(bytes);
+    }
+
+    private String getServiceToken() {
+        long currentTime = System.currentTimeMillis();
+
+        // Checking if token is null or about to expire (adding a buffer of 5 minutes)
+        if (serviceToken == null || currentTime > tokenExpiryTime - 300000) {
+            logger.debug("Service token null or expiring soon, requesting new token");
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> loginRequest = new HashMap<>();
+            loginRequest.put("loginId", decryptedKmsUsername);
+            loginRequest.put("password", decryptedKmsPassword);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(loginRequest, headers);
+
+            try {
+                ResponseEntity<Map> response = restTemplate.exchange(
+                        kmsBaseUrl + "/auth/login",
+                        HttpMethod.POST,
+                        requestEntity,
+                        Map.class
+                );
+
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    serviceToken = (String) response.getBody().get("token");
+
+                    // Calculate token expiry time based on your JWT expiration setting
+                    // From your application.properties: jwt.expiration=32400000 (9 hours)
+                    tokenExpiryTime = System.currentTimeMillis() + 32400000;
+
+                    logger.debug("Service token refreshed, valid until: {}",
+                            new java.util.Date(tokenExpiryTime));
+                }
+            } catch (Exception e) {
+                logger.error("Failed to obtain KMS service token: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to obtain KMS service token: " + e.getMessage(), e);
+            }
+        }
+        return serviceToken;
+    }
+
+    //method to search by script number
+    public ResponseEntity<?> searchByScriptNumber(String scriptNumber, String userToken, int page, int size) {
+        try {
+            // Create request entity with headers and body
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("scriptNumber", scriptNumber);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            //sending request with pagination parameters
+            String url = kmsBaseUrl + "/scripts/search-script-number?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
+            );
+
+            return response;
+        } catch (Exception e) {
+            //logging the error and returning appropriate response
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
+        }
+    }
+
+    //method to search by content
+    public ResponseEntity<?> searchByContent(String searchText, String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("searchText", searchText);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            String url = kmsBaseUrl + "/scripts/search-content?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
+            );
+
+            return response;
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
+        }
+    }
+
+    //method to search by keyword
+    public ResponseEntity<?> searchByKeyword(String searchText, String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("searchText", searchText);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            String url = kmsBaseUrl + "/scripts/search-keyword?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
+            );
+
+            return response;
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
+        }
+    }
+
+    //method to search by FAQ
+    public ResponseEntity<?> searchByFaq(String searchText, String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("searchText", searchText);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            String url = kmsBaseUrl + "/scripts/search-faq?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
+            );
+
+            return response;
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
+        }
+    }
+
+    // Method to search by glossary
+    public ResponseEntity<?> searchByGlossary(String searchText, String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("searchText", searchText);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            String url = kmsBaseUrl + "/scripts/search-glossary?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
+            );
+
+            return response;
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<byte[]> getScriptPdf(Integer scriptId, String userToken) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.set("X-Source-Application", "DEMS-IB");
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            String url = kmsBaseUrl + "/scripts/pdf/" + scriptId;
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    requestEntity,
+                    byte[].class
+            );
+
+            // Copy response headers and body to maintain content type, etc.
+            HttpHeaders responseHeaders = new HttpHeaders();
+            responseHeaders.setContentType(MediaType.APPLICATION_PDF);
+            responseHeaders.setContentDispositionFormData("filename", "script-" + scriptId + ".pdf");
+            responseHeaders.setContentLength(response.getBody() != null ? response.getBody().length : 0);
+
+            return new ResponseEntity<>(response.getBody(), responseHeaders, response.getStatusCode());
+        } catch (Exception e) {
+            throw new RuntimeException("Error fetching PDF from KMS: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getWhatsNewScripts(String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            String url = kmsBaseUrl + "/scripts/whats-new-script?page=" + page + "&size=" + size;
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    requestEntity,
+                    Object.class
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error fetching What's New scripts from KMS: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getFrequentlyAccessedScripts(String userToken, int limit, int hours) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.set("X-Source-Application", "DEMS-IB");
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            String url = kmsBaseUrl + "/scripts/frequently-accessed?limit=" + limit + "&hours=" + hours;
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    requestEntity,
+                    Object.class
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error fetching frequently accessed scripts from KMS: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getQuickAccessScripts(String userToken) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.set("X-Source-Application", "DEMS-IB");
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            String url = kmsBaseUrl + "/scripts/quick-access";
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    requestEntity,
+                    Object.class
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error fetching quick access scripts from KMS: " + e.getMessage());
+        }
+    }
+
+}
+
+
+
+When asked to use a .netrc file for credentials and to follow HTTP
+redirects, curl could leak the password used for the first host to the
+followed-to host under certain circumstances.
+This flaw only manifests itself if the netrc file has a default entry that
+omits both login and password. A rare circumstance.
