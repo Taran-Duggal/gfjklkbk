@@ -1,176 +1,510 @@
-# Converting RestTemplate to WebSocket Implementation
+package com.demsIB.service.impl;
 
-To replace the RestTemplate calls with WebSocket communication, we'll need to make significant changes to the architecture. Here's how you can modify the code:
+import com.demsIB.service.ScriptSearchService;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-## 1. First, set up WebSocket configuration
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
-```java
-@Configuration
-@EnableWebSocketMessageBroker
-public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-
-    @Override
-    public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic");
-        config.setApplicationDestinationPrefixes("/app");
-    }
-
-    @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws").setAllowedOriginPatterns("*").withSockJS();
-    }
-}
-```
-
-## 2. Create a WebSocket service class
-
-```java
 @Service
-public class WebSocketService {
+public class ScriptSearchServiceImpl implements ScriptSearchService {
 
-    private final SimpMessagingTemplate messagingTemplate;
+    private final RestTemplate restTemplate;
+    private final String kmsBaseUrl = "http://localhost:9090/kms/api/v1";
 
-    @Autowired
-    public WebSocketService(SimpMessagingTemplate messagingTemplate) {
-        this.messagingTemplate = messagingTemplate;
+    private String serviceToken = null;
+    private long tokenExpiryTime = 0;
+    private static final Logger logger = LoggerFactory.getLogger(ScriptSearchServiceImpl.class);
+    private static final byte[] XOR_KEY = "MyAppXORKey!123".getBytes();
+
+    @Value("${kms.service.username}")
+    private String kmsServiceUsername;
+
+    @Value("${kms.service.password}")
+    private String kmsServicePassword;
+
+    public ScriptSearchServiceImpl(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
-    public void sendMessage(String destination, Object payload) {
-        messagingTemplate.convertAndSend(destination, payload);
+    private String decryptedKmsUsername;
+    private String decryptedKmsPassword;
+
+    @PostConstruct
+    public void init() {
+        this.decryptedKmsUsername = getDecryptedUsername();
+        this.decryptedKmsPassword = getDecryptedKmsPassword();
+        logger.debug("KMS credentials initialized and decrypted");
     }
 
-    public <T> T sendAndReceive(String destination, Object request, Class<T> responseType, long timeout) {
-        // Implementation for request-response pattern over WebSocket
-        // This requires additional setup with temporary queues
-        // Here's a simplified version:
-        
-        String correlationId = UUID.randomUUID().toString();
-        String replyDestination = "/temp-queue/" + correlationId;
-        
-        // Send the request
-        messagingTemplate.convertAndSend(destination, 
-            new WebSocketRequest(correlationId, replyDestination, request));
-        
-        // Wait for response (simplified - in production you'd use CompletableFuture or similar)
-        try {
-            Thread.sleep(timeout);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+    private String getDecryptedKmsPassword() {
+        // Check if secret is encrypted with ENC() format
+        if (kmsServicePassword != null && kmsServicePassword.startsWith("ENC(") && kmsServicePassword.endsWith(")")) {
+            String encrypted = kmsServicePassword.substring(4, kmsServicePassword.length() - 1);
+            return decrypt(encrypted);
         }
-        
-        // In a real implementation, you'd have a response handler registered
-        return null;
+        return kmsServicePassword;
     }
-}
-```
 
-## 3. Modify the token service to use WebSocket
+    private String getDecryptedUsername() {
+        // Check if username is encrypted with ENC() format
+        if (kmsServiceUsername != null && kmsServiceUsername.startsWith("ENC(") && kmsServiceUsername.endsWith(")")) {
+            String encrypted = kmsServiceUsername.substring(4, kmsServiceUsername.length() - 1);
+            return decrypt(encrypted);
+        }
+        return kmsServiceUsername;
+    }
 
-```java
-private String getServiceToken() {
-    long currentTime = System.currentTimeMillis();
+    private String decrypt(String encrypted) {
+        byte[] bytes = Base64.getDecoder().decode(encrypted);
+        // XOR decryption
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] ^= XOR_KEY[i % XOR_KEY.length];
+        }
+        return new String(bytes);
+    }
 
-    if (serviceToken == null || currentTime > tokenExpiryTime - 300000) {
-        logger.debug("Service token null or expiring soon, requesting new token");
+    private String getServiceToken() {
+        long currentTime = System.currentTimeMillis();
 
-        Map<String, String> loginRequest = new HashMap<>();
-        loginRequest.put("loginId", decryptedObUsername);
-        loginRequest.put("password", decryptedObPassword);
+        // Checking if token is null or about to expire (adding a buffer of 5 minutes)
+        if (serviceToken == null || currentTime > tokenExpiryTime - 300000) {
+            logger.debug("Service token null or expiring soon, requesting new token");
 
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> loginRequest = new HashMap<>();
+            loginRequest.put("loginId", decryptedKmsUsername);
+            loginRequest.put("password", decryptedKmsPassword);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(loginRequest, headers);
+
+            try {
+                ResponseEntity<Map> response = restTemplate.exchange(
+                        kmsBaseUrl + "/auth/login",
+                        HttpMethod.POST,
+                        requestEntity,
+                        Map.class
+                );
+
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    serviceToken = (String) response.getBody().get("token");
+
+                    // Calculate token expiry time based on your JWT expiration setting
+                    // From your application.properties: jwt.expiration=32400000 (9 hours)
+                    tokenExpiryTime = System.currentTimeMillis() + 32400000;
+
+                    logger.debug("Service token refreshed, valid until: {}",
+                            new java.util.Date(tokenExpiryTime));
+                }
+            } catch (Exception e) {
+                logger.error("Failed to obtain KMS service token: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to obtain KMS service token: " + e.getMessage(), e);
+            }
+        }
+        return serviceToken;
+    }
+
+    //method to search by script number
+    public ResponseEntity<?> searchByScriptNumber(String scriptNumber, String userToken, int page, int size) {
         try {
-            // Using WebSocket instead of RestTemplate
-            Map response = webSocketService.sendAndReceive(
-                "/auth/login",
-                loginRequest,
-                Map.class,
-                5000 // 5 second timeout
+            // Create request entity with headers and body
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("scriptNumber", scriptNumber);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            //sending request with pagination parameters
+            String url = kmsBaseUrl + "/scripts/search-script-number?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
             );
 
-            if (response != null) {
-                serviceToken = (String) response.get("token");
-                tokenExpiryTime = System.currentTimeMillis() + 32400000;
-                logger.debug("Service token refreshed, valid until: {}", 
-                    new java.util.Date(tokenExpiryTime));
-            }
+            return response;
         } catch (Exception e) {
-            logger.error("Failed to obtain OB service token: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to obtain OB service token: " + e.getMessage(), e);
+            //logging the error and returning appropriate response
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
         }
     }
-    return serviceToken;
+
+    //method to search by content
+    public ResponseEntity<?> searchByContent(String searchText, String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("searchText", searchText);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            String url = kmsBaseUrl + "/scripts/search-content?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
+            );
+
+            return response;
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
+        }
+    }
+
+    //method to search by keyword
+    public ResponseEntity<?> searchByKeyword(String searchText, String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("searchText", searchText);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            String url = kmsBaseUrl + "/scripts/search-keyword?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
+            );
+
+            return response;
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
+        }
+    }
+
+    //method to search by FAQ
+    public ResponseEntity<?> searchByFaq(String searchText, String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("searchText", searchText);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            String url = kmsBaseUrl + "/scripts/search-faq?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
+            );
+
+            return response;
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
+        }
+    }
+
+    // Method to search by glossary
+    public ResponseEntity<?> searchByGlossary(String searchText, String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("searchText", searchText);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+            String url = kmsBaseUrl + "/scripts/search-glossary?page=" + page + "&size=" + size;
+            ResponseEntity<?> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Object.class
+            );
+
+            return response;
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error calling KMS search service: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<byte[]> getScriptPdf(Integer scriptId, String userToken) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.set("X-Source-Application", "DEMS-IB");
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            String url = kmsBaseUrl + "/scripts/pdf/" + scriptId;
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    requestEntity,
+                    byte[].class
+            );
+
+            // Copy response headers and body to maintain content type, etc.
+            HttpHeaders responseHeaders = new HttpHeaders();
+            responseHeaders.setContentType(MediaType.APPLICATION_PDF);
+            responseHeaders.setContentDispositionFormData("filename", "script-" + scriptId + ".pdf");
+            responseHeaders.setContentLength(response.getBody() != null ? response.getBody().length : 0);
+
+            return new ResponseEntity<>(response.getBody(), responseHeaders, response.getStatusCode());
+        } catch (Exception e) {
+            throw new RuntimeException("Error fetching PDF from KMS: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getWhatsNewScripts(String userToken, int page, int size) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            String url = kmsBaseUrl + "/scripts/whats-new-script?page=" + page + "&size=" + size;
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    requestEntity,
+                    Object.class
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error fetching What's New scripts from KMS: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getFrequentlyAccessedScripts(String userToken, int limit, int hours) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.set("X-Source-Application", "DEMS-IB");
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            String url = kmsBaseUrl + "/scripts/frequently-accessed?limit=" + limit + "&hours=" + hours;
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    requestEntity,
+                    Object.class
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error fetching frequently accessed scripts from KMS: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getQuickAccessScripts(String userToken) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(getServiceToken());
+            headers.set("X-Source-Application", "DEMS-IB");
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            String url = kmsBaseUrl + "/scripts/quick-access";
+            return restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    requestEntity,
+                    Object.class
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error fetching quick access scripts from KMS: " + e.getMessage());
+        }
+    }
+
 }
-```
 
-## 4. Modify the createUser method for Outbound group
 
-```java
-if("Outbound".equals(userGroup.getName())) {
-    // Using WebSocket instead of RestTemplate
-    try {
-        String response = webSocketService.sendAndReceive(
-            "/users/createUser",
-            request,
-            String.class,
-            5000 // 5 second timeout
-        );
+package com.demsIB.service;
+
+import org.springframework.http.ResponseEntity;
+
+public interface ScriptSearchService {
+
+    public ResponseEntity<?> searchByScriptNumber(String scriptNumber, String token, int page, int size);
+
+    public ResponseEntity<?> searchByContent(String searchText, String token, int page, int size);
+
+    public ResponseEntity<?> searchByKeyword(String searchText, String token, int page, int size);
+
+    public ResponseEntity<?> searchByFaq(String searchText, String token, int page, int size);
+
+    public ResponseEntity<?> searchByGlossary(String searchText, String token, int page, int size);
+
+    ResponseEntity<byte[]> getScriptPdf(Integer scriptId, String token);
+
+    ResponseEntity<?> getWhatsNewScripts(String token, int page, int size);
+
+    ResponseEntity<?> getFrequentlyAccessedScripts(String userToken, int limit, int hours);
+
+    public ResponseEntity<?> getQuickAccessScripts(String userToken);
+}
+
+
+package com.demsIB.controller;
+
+import com.demsIB.security.UserPrincipal;
+import com.demsIB.service.ScriptSearchService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1")
+@Tag(name = "Script Search")
+public class ScriptSearchController {
+
+    private final ScriptSearchService scriptSearchService;
+
+    public ScriptSearchController(ScriptSearchService scriptSearchService) {
+        this.scriptSearchService = scriptSearchService;
+    }
+
+    @PostMapping("/search-script-number")
+    public ResponseEntity<?> searchByScriptNumber(
+            @RequestBody Map<String, String> request,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
         
-        logger.debug("User creation response via WebSocket: {}", response);
-        return;
-    } catch (Exception e) {
-        logger.error("Failed to create user via WebSocket: {}", e.getMessage(), e);
-        throw new RuntimeException("Failed to create user via WebSocket: " + e.getMessage(), e);
+        return scriptSearchService.searchByScriptNumber(request.get("scriptNumber"), userPrincipal.getToken(), page, size);
+    }
+
+    @PostMapping("/search-content")
+    public ResponseEntity<?> searchByContent(
+            @RequestBody Map<String, String> request,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        return scriptSearchService.searchByContent(request.get("searchText"), userPrincipal.getToken(), page, size);
+    }
+
+    @PostMapping("/search-keyword")
+    public ResponseEntity<?> searchByKeyword(
+            @RequestBody Map<String, String> request,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        return scriptSearchService.searchByKeyword(request.get("searchText"), userPrincipal.getToken(), page, size);
+    }
+
+    @PostMapping("/search-faq")
+    public ResponseEntity<?> searchByFaq(
+            @RequestBody Map<String, String> request,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        return scriptSearchService.searchByFaq(request.get("searchText"), userPrincipal.getToken(), page, size);
+    }
+
+    @PostMapping("/search-glossary")
+    public ResponseEntity<?> searchByGlossary(
+            @RequestBody Map<String, String> request,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        return scriptSearchService.searchByGlossary(request.get("searchText"), userPrincipal.getToken(), page, size);
+    }
+
+    @GetMapping(value = "/pdf/{scriptId}", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> getScriptPdf(
+            @PathVariable Integer scriptId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        return scriptSearchService.getScriptPdf(scriptId, userPrincipal.getToken());
+    }
+
+    @GetMapping("/whats-new")
+    public ResponseEntity<?> getWhatsNewScripts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        return scriptSearchService.getWhatsNewScripts(userPrincipal.getToken(), page, size);
+    }
+
+    @GetMapping("/frequently-accessed")
+    public ResponseEntity<?> getFrequentlyAccessedScripts(
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(defaultValue = "24") int hours,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        
+        return scriptSearchService.getFrequentlyAccessedScripts(userPrincipal.getToken(), limit, hours);
+    }
+
+    @GetMapping("/quick-access")
+    public ResponseEntity<?> getQuickAccessScripts(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return scriptSearchService.getQuickAccessScripts(userPrincipal.getToken());
     }
 }
-```
 
-## 5. WebSocket Controller on the Other Side
 
-The other service (that was previously receiving REST calls) would need a WebSocket controller:
+package com.demsIB.config;
 
-```java
-@Controller
-public class UserWebSocketController {
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
 
-    @Autowired
-    private UserService userService;
+import java.time.Duration;
 
-    @MessageMapping("/auth/login")
-    @SendToUser("/queue/reply")
-    public Map<String, Object> handleLogin(Map<String, String> loginRequest) {
-        // Authentication logic here
-        Map<String, Object> response = new HashMap<>();
-        response.put("token", "generated-jwt-token");
-        return response;
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public RestTemplateBuilder restTemplateBuilder() {
+        return new RestTemplateBuilder()
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(10));
     }
 
-    @MessageMapping("/users/createUser")
-    @SendToUser("/queue/reply")
-    public String handleUserCreation(UserCreateRequest request) {
-        // User creation logic here
-        return "User created successfully";
+    @Bean
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder.build();
     }
 }
-```
 
-## Important Considerations:
 
-1. **Request-Response Pattern**: WebSocket is inherently push-based, so implementing request-response requires additional work (like temporary queues).
 
-2. **Error Handling**: WebSocket error handling is different from REST. You'll need to implement proper error channels.
-
-3. **Security**: WebSocket connections need proper authentication/authorization.
-
-4. **Performance**: WebSocket maintains persistent connections which can be more efficient for frequent communication.
-
-5. **State Management**: The connection state needs to be managed carefully.
-
-6. **Timeouts**: You need to implement proper timeout handling for requests.
-
-For a production system, you might want to consider:
-- Using STOMP protocol for messaging
-- Implementing proper correlation IDs for request matching
-- Adding WebSocket connection health checks
-- Implementing reconnection logic
-- Adding proper security (JWT over WebSocket)
-
-The transition from REST to WebSocket is non-trivial and requires changes on both client and server sides. Make sure this architectural change aligns with your overall system design requirements.
