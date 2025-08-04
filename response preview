@@ -87,3 +87,71 @@ public ResponseEntity<byte[]> downloadPreview(
     // Same PDF generation logic
     // Return as PDF download
 }
+
+
+
+
+@PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+@Operation(summary = "Preview script",
+        description = "Generates a preview of the script with the provided data and optional file")
+@ApiResponses({
+    @ApiResponse(responseCode = "200",
+        description = "Script preview generated successfully",
+        content = {
+            @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = ScriptPreviewDto.class)),
+            @Content(mediaType = "application/pdf")
+        }),
+    @ApiResponse(responseCode = "400", description = "Bad request"),
+    @ApiResponse(responseCode = "500", description = "Internal server error")
+})
+@SecurityRequirement(name = "bearerAuth")
+public ResponseEntity<?> previewScript(
+        @RequestPart("scriptData") String scriptDataJson,
+        @RequestPart(value = "contentFile", required = false) MultipartFile contentFile,
+        @RequestHeader(value = "Accept", required = false) String acceptHeader) {
+    
+    try {
+        // Your existing parsing logic
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode rootNode = mapper.readTree(scriptDataJson);
+        logger.info("Received scriptData JSON: {}", scriptDataJson);
+
+        ScriptRequestDto requestDto = new ScriptRequestDto();
+        // Populate requestDto (keep all your existing field mappings)
+        
+        // Generate PDF (using your existing service)
+        byte[] pdfContent = scriptService.generateFormattedPdf(createTempScript(requestDto), requestDto);
+
+        // Check if client wants PDF (Swagger will typically send Accept: */*)
+        boolean wantsPdf = acceptHeader != null && 
+                         (acceptHeader.contains("application/pdf") || 
+                          acceptHeader.contains("*/*"));
+
+        if (wantsPdf) {
+            // Return PDF for download
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(
+                ContentDisposition.builder("attachment")
+                    .filename("script-preview.pdf")
+                    .build());
+            headers.setContentLength(pdfContent.length);
+            
+            return new ResponseEntity<>(pdfContent, headers, HttpStatus.OK);
+        } else {
+            // Return JSON (for your UI)
+            ScriptPreviewDto previewDto = new ScriptPreviewDto();
+            // Set all your existing DTO fields
+            previewDto.setPdfContent("data:application/pdf;base64," + 
+                Base64.getEncoder().encodeToString(pdfContent));
+            
+            return ResponseEntity.ok(previewDto);
+        }
+
+    } catch (Exception e) {
+        logger.error("Error processing script preview: {}", e.getMessage(), e);
+        return ResponseEntity.internalServerError()
+            .body(Map.of("error", "Error processing preview request"));
+    }
+}
