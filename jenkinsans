@@ -41,3 +41,94 @@ stage('Create Backup'){
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pipeline {
+    agent any
+    environment {
+        BACKUP_DIR = 'C:\\Jenkins\\Backups\\StudentApp'
+        TOMCAT_WEBAPPS = 'C:\\Program Files\\Apache Software Foundation\\Tomcat 10.1\\webapps'
+        TOMCAT_SERVICE = 'Tomcat10'
+        APP_NAME = 'student'
+    }
+
+    stages {
+        // Your existing stages (Build, Pre-Deployment Checks, Create Backup)
+
+        stage('Stop Tomcat') {
+            steps {
+                script {
+                    echo "=== Stopping Tomcat Service ==="
+                    
+                    withCredentials([usernamePassword(
+                        credentialsId: 'tomcat-admin-creds',
+                        usernameVariable: 'ADMIN_USER',
+                        passwordVariable: 'ADMIN_PASS'
+                    )]) {
+                        // Method 1: Using PowerShell with credentials
+                        bat """
+                            powershell -Command "\$securePass = ConvertTo-SecureString '${ADMIN_PASS}' -AsPlainText -Force; \
+                            \$credential = New-Object System.Management.Automation.PSCredential('${ADMIN_USER}', \$securePass); \
+                            Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','net stop ${TOMCAT_SERVICE}' -Credential \$credential -NoNewWindow -Wait"
+                        """
+                        
+                        // Verify service stopped
+                        def status = bat(script: "sc query ${TOMCAT_SERVICE} | findstr STATE", returnStdout: true).trim()
+                        if(status.contains("STOPPED")) {
+                            echo "✅ Tomcat service confirmed stopped"
+                        } else {
+                            error("❌ Failed to stop Tomcat service")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Your existing Deploy Application stage
+
+        stage('Start Tomcat') {
+            steps {
+                script {
+                    echo "=== Starting Tomcat Service ==="
+                    
+                    withCredentials([usernamePassword(
+                        credentialsId: 'tomcat-admin-creds',
+                        usernameVariable: 'ADMIN_USER',
+                        passwordVariable: 'ADMIN_PASS'
+                    )]) {
+                        bat """
+                            powershell -Command "\$securePass = ConvertTo-SecureString '${ADMIN_PASS}' -AsPlainText -Force; \
+                            \$credential = New-Object System.Management.Automation.PSCredential('${ADMIN_USER}', \$securePass); \
+                            Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','net start ${TOMCAT_SERVICE}' -Credential \$credential -NoNewWindow -Wait"
+                        """
+                        
+                        // Verify service started
+                        def status = bat(script: "sc query ${TOMCAT_SERVICE} | findstr STATE", returnStdout: true).trim()
+                        if(status.contains("RUNNING")) {
+                            echo "✅ Tomcat service confirmed running"
+                        } else {
+                            error("❌ Failed to start Tomcat service")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Your remaining stages
+    }
+}
