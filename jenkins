@@ -2051,3 +2051,271 @@ Application may still be starting - check Tomcat logs if endpoints aren't respon
 [Pipeline] // node
 [Pipeline] End of Pipeline
 Finished: UNSTABLE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Started by user Taran Singh Duggal
+
+Obtained Jenkinsfile from git https://github.com/Taran-Duggal/DockerDb
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on Jenkins
+ in C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Declarative: Checkout SCM)
+[Pipeline] checkout
+The recommended git tool is: NONE
+No credentials specified
+Cloning the remote Git repository
+Cloning repository https://github.com/Taran-Duggal/DockerDb
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe init C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1 # timeout=10
+Fetching upstream changes from https://github.com/Taran-Duggal/DockerDb
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe --version # timeout=10
+ > git --version # 'git version 2.45.1.windows.1'
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe fetch --tags --force --progress -- https://github.com/Taran-Duggal/DockerDb +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe config remote.origin.url https://github.com/Taran-Duggal/DockerDb # timeout=10
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+Avoid second fetch
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe rev-parse "refs/remotes/origin/main^{commit}" # timeout=10
+Checking out Revision 8cafc943ad5eb55abd39286760830e253619686f (refs/remotes/origin/main)
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe config core.sparsecheckout # timeout=10
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe checkout -f 8cafc943ad5eb55abd39286760830e253619686f # timeout=10
+Commit message: "changes seek"
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe rev-list --no-walk db32dbf6b722c7fbbcf94d9997deb3846c2a7811 # timeout=10
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Verify Connectivity)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== Verifying Maven Central Connectivity ===
+[Pipeline] bat
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>nslookup repo.maven.apache.org 
+Non-authoritative answer:
+
+Server:  UnKnown
+Address:  192.168.1.1
+
+Name:    maven.map.fastly.net
+Addresses:  2a04:4e42:42::215
+	  199.232.20.215
+Aliases:  repo.maven.apache.org
+	  repo.apache.maven.org
+
+[Pipeline] echo
+âœ… DNS resolution verified for repo.maven.apache.org
+[Pipeline] powershell
+[Pipeline] echo
+Maven Central connectivity check returned HTTP 200
+[Pipeline] echo
+âœ… Maven Central is accessible
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Build)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== Starting Maven Build ===
+[Pipeline] bat
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>mvn --version 
+Apache Maven 3.9.11 (3e54c93a704957b63ee3494413a2b544fd3d825b)
+Maven home: C:\Users\duggal.84\OneDrive - TeleperformanceDIBS\apache-maven-3.9.11
+Java version: 17.0.12, vendor: Oracle Corporation, runtime: C:\Program Files\Java\jdk-17
+Default locale: en_US, platform encoding: Cp1252
+OS name: "windows 11", version: "10.0", arch: "amd64", family: "windows"
+[Pipeline] bat
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>mvn clean package -DskipTests=true 
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< com.dockerwithDb:DockerDb >----------------------
+[INFO] Building DockerDb 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ war ]---------------------------------
+
+[INFO] 
+[INFO] --- clean:3.4.1:clean (default-clean) @ DockerDb ---
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ DockerDb ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ DockerDb ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 6 source files with javac [debug parameters release 17] to target\classes
+
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ DockerDb ---
+[INFO] skip non existing resourceDirectory C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ DockerDb ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 2 source files with javac [debug parameters release 17] to target\test-classes
+
+[INFO] 
+[INFO] --- surefire:3.5.3:test (default-test) @ DockerDb ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- war:3.3.2:war (default-war) @ DockerDb ---
+
+[INFO] Packaging webapp
+[INFO] Assembling webapp [DockerDb] in [C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1\target\student]
+[INFO] Processing war project
+
+[INFO] Building war: C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1\target\student.war
+
+[INFO] 
+[INFO] --- spring-boot:3.5.4:repackage (repackage) @ DockerDb ---
+
+[INFO] Replacing main artifact C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1\target\student.war with repackaged archive, adding nested dependencies in BOOT-INF/.
+[INFO] The original artifact has been renamed to C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1\target\student.war.original
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  18.610 s
+[INFO] Finished at: 2025-08-10T14:28:42+05:30
+[INFO] ------------------------------------------------------------------------
+
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Pre-Deployment Checks)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== Pre-Deployment Checks ===
+[Pipeline] bat
+
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>if not exist "C:\Jenkins\Backups\StudentApp" (
+mkdir "C:\Jenkins\Backups\StudentApp"   || exit /b 1  
+ echo Ã¢Å“â€¦ Created backup directory 
+) 
+[Pipeline] bat
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>if not exist "C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps" (
+echo Ã¢ï¿½Å’ Tomcat webapps directory not accessible  
+ exit 1 
+) 
+[Pipeline] bat
+
+[Pipeline] echo
+âš ï¸� Tomcat running - will attempt to stop
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Create Backup)
+
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== Creating Application Backup ===
+[Pipeline] bat
+
+[Pipeline] bat
+Creating backup of WAR file...
+        1 file(s) copied.
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Deploy Application)
+
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== Deploying Application ===
+[Pipeline] bat
+Removing old deployment...
+Deploying new WAR...
+target\student.war
+        1 file(s) copied.
+Setting permissions...
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+
+[Pipeline] stage
+[Pipeline] { (Verify Deployment)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== Verifying Deployment ===
+[Pipeline] bat
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>if not exist "C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\student.war" (
+echo Ã¢ï¿½Å’ WAR file not deployed  
+ exit 1 
+) 
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>echo Ã¢Å“â€¦ WAR file deployed 
+Ã¢Å“â€¦ WAR file deployed
+[Pipeline] bat
+
+[Pipeline] echo
+âš ï¸� Endpoint http://localhost:8080/student/api/health returned HTTP C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>curl -s -o nul -w "%{http_code}" --connect-timeout 10 "http://localhost:8080/student/api/health" 
+403
+[Pipeline] bat
+[Pipeline] echo
+âš ï¸� Endpoint http://localhost:8080/student/health returned HTTP C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>curl -s -o nul -w "%{http_code}" --connect-timeout 10 "http://localhost:8080/student/health" 
+403
+[Pipeline] echo
+âš ï¸� No healthy endpoints found - check Tomcat logs
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+Finished: UNSTABLE
