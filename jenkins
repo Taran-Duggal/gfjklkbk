@@ -862,3 +862,173 @@ Tomcat start success: Unknown
 [Pipeline] End of Pipeline
 ERROR: script returned exit code 1
 Finished: FAILURE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[INFO] The original artifact has been renamed to C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1\target\student.war.original
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  15.761 s
+[INFO] Finished at: 2025-08-10T13:47:33+05:30
+[INFO] ------------------------------------------------------------------------
+[Pipeline] }
+[Pipeline] // script
+Post stage
+[Pipeline] echo
+Build completed successfully!
+[Pipeline] echo
+Now Archiving the Artifacts
+[Pipeline] archiveArtifacts
+Archiving artifacts
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Pre-Deployment Checks)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== Pre-Deployment Checks ===
+[Pipeline] bat
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>echo "Creating backup directory if it doesn't exist..." 
+"Creating backup directory if it doesn't exist..."
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>if not exist "C:\Jenkins\Backups\StudentApp" (
+mkdir "C:\Jenkins\Backups\StudentApp"  
+ echo "Ã¢Å“â€¦ Backup directory created: C:\Jenkins\Backups\StudentApp" 
+)  else (echo "Ã¢Å“â€¦ Backup directory already exists: C:\Jenkins\Backups\StudentApp" ) 
+"Ã¢Å“â€¦ Backup directory already exists: C:\Jenkins\Backups\StudentApp"
+[Pipeline] bat
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>echo "Checking Tomcat directory access..." 
+"Checking Tomcat directory access..."
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>if exist "C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps" (echo "Ã¢Å“â€¦ Tomcat webapps directory accessible" )  else (
+echo "Ã¢ï¿½Å’ Cannot access Tomcat webapps directory"  
+ exit 1 
+) 
+"Ã¢Å“â€¦ Tomcat webapps directory accessible"
+[Pipeline] bat
+[Pipeline] echo
+Current Tomcat service status: C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>sc query Tomcat10   | findstr STATE 
+        STATE              : 1  STOPPED
+[Pipeline] echo
+âœ… Tomcat is not running - can proceed safely
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Create Backup)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== Creating Application Backup ===
+[Pipeline] bat
+[Pipeline] bat
+Backup timestamp: 20250810_134738
+Backup location: C:\Jenkins\Backups\StudentApp\student.war.backup.20250810_134738
+No existing WAR file found - fresh deployment
+Cleaning old backups (keeping last 5)...
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Stop Tomcat)
+Stage "Stop Tomcat" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Deploy Application)
+Stage "Deploy Application" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Start Tomcat)
+Stage "Start Tomcat" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Post-Deployment Verification)
+Stage "Post-Deployment Verification" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Declarative: Post Actions)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== DEPLOYMENT SUMMARY ===
+[Pipeline] echo
+Backup location: C:\Jenkins\Backups\StudentApp\student.war.backup.20250810_134738
+[Pipeline] echo
+Backup directory: C:\Jenkins\Backups\StudentApp
+[Pipeline] echo
+Tomcat stop method: Not stopped
+[Pipeline] echo
+Tomcat start success: Unknown
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] echo
+=== CLEANING UP WORKSPACE ===
+[Pipeline] deleteDir
+[Pipeline] echo
+â�Œ === DEPLOYMENT FAILED ===
+[Pipeline] echo
+ðŸ”„ ROLLBACK OPTIONS:
+[Pipeline] echo
+1. Restore from backup: C:\Jenkins\Backups\StudentApp\student.war.backup.20250810_134738
+[Pipeline] echo
+2. Manual rollback command:
+[Pipeline] echo
+   copy "C:\Jenkins\Backups\StudentApp\student.war.backup.20250810_134738" "C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\student.war"
+[Pipeline] echo
+
+[Pipeline] echo
+ðŸ”§ ADMIN PRIVILEGE SOLUTIONS:
+[Pipeline] echo
+1. Run Jenkins service as Administrator
+[Pipeline] echo
+2. Use 'Run as Administrator' for Jenkins
+[Pipeline] echo
+3. Configure Jenkins to run with admin privileges
+[Pipeline] echo
+4. Manual Tomcat control via Services.msc
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 1
+Finished: FAILURE
