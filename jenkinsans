@@ -744,3 +744,116 @@ stage('Verify Connectivity') {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pipeline {
+    agent any
+    environment {
+        BACKUP_DIR = 'C:\\Jenkins\\Backups\\StudentApp'
+        TOMCAT_WEBAPPS = 'C:\\Program Files\\Apache Software Foundation\\Tomcat 10.1\\webapps'
+        TOMCAT_SERVICE = 'Tomcat10'
+        APP_NAME = 'student'
+        MAVEN_REPO_URL = 'repo.maven.apache.org'
+    }
+
+    stages {
+        stage('Verify Connectivity') {
+            steps {
+                script {
+                    echo "=== Verifying Maven Central Connectivity ==="
+                    
+                    // DNS Resolution Check
+                    def dnsCheck = bat(
+                        script: "nslookup ${MAVEN_REPO_URL}",
+                        returnStatus: true
+                    )
+                    
+                    if (dnsCheck != 0) {
+                        error "❌ DNS resolution failed for ${MAVEN_REPO_URL}"
+                    }
+                    echo "✅ DNS resolution verified for ${MAVEN_REPO_URL}"
+                    
+                    // HTTP Connectivity Check using PowerShell
+                    def httpStatus = powershell(
+                        script: """
+                            try {
+                                \$response = Invoke-WebRequest -Uri "https://${MAVEN_REPO_URL}/maven2/" -Method Head -UseBasicParsing -TimeoutSec 10
+                                Write-Output \$response.StatusCode
+                            } catch {
+                                Write-Output \$_.Exception.Response.StatusCode.Value__
+                            }
+                        """,
+                        returnStdout: true
+                    ).trim()
+                    
+                    echo "Maven Central connectivity check returned HTTP ${httpStatus}"
+                    
+                    if (httpStatus == "200") {
+                        env.MAVEN_ONLINE = true
+                        echo "✅ Maven Central is accessible"
+                    } else {
+                        env.MAVEN_ONLINE = false
+                        echo "⚠️ Maven Central not accessible (HTTP ${httpStatus}) - will use offline mode"
+                    }
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    echo "=== Starting Maven Build ==="
+                    
+                    // Remove the problematic curl command
+                    // Add Maven version check for debugging
+                    bat 'mvn --version'
+                    
+                    try {
+                        if (env.MAVEN_ONLINE == "true") {
+                            bat 'mvn clean package -DskipTests=true'
+                        } else {
+                            bat 'mvn clean package -DskipTests=true -o'
+                        }
+                    } catch (Exception e) {
+                        error "❌ Build failed: ${e.getMessage()}"
+                    }
+                }
+            }
+            post {
+                failure {
+                    echo "❌ Build failed - checking possible causes..."
+                    bat 'where mvn'
+                    bat 'echo %PATH%'
+                    bat 'echo %MAVEN_HOME%'
+                }
+            }
+        }
+
+        // Rest of your pipeline stages remain the same...
+    }
+}
