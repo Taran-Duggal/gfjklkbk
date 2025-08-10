@@ -1304,3 +1304,44 @@ Stage "Verify Deployment" skipped due to earlier failure(s)
 [Pipeline] End of Pipeline
 ERROR: script returned exit code 2
 Finished: FAILURE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PS C:\Users\duggal.84> Invoke-WebRequest -Uri "https://repo.maven.apache.org/maven2/" -Method Head
+
+
+StatusCode        : 200
+StatusDescription : OK
+Content           :
+RawContent        : HTTP/1.1 200 OK
+                    Connection: keep-alive
+                    Age: 1933894
+                    X-Served-By: cache-iad-kcgs7200026-IAD, cache-del21720-DEL
+                    X-Cache: HIT, HIT
+                    X-Cache-Hits: 565, 0
+                    X-Timer: S1754815190.275844,VS0,VE1
+                    Accept-...
+Forms             : {}
+Headers           : {[Connection, keep-alive], [Age, 1933894], [X-Served-By, cache-iad-kcgs7200026-IAD,
+                    cache-del21720-DEL], [X-Cache, HIT, HIT]...}
+Images            : {}
+InputFields       : {}
+Links             : {}
+ParsedHtml        : mshtml.HTMLDocumentClass
+RawContentLength  : 0
