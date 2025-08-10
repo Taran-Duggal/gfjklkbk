@@ -937,3 +937,165 @@ stage('Verify Deployment') {
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pipeline {
+    agent any
+    environment {
+        BACKUP_DIR = 'C:\\Jenkins\\Backups\\StudentApp'
+        TOMCAT_WEBAPPS = 'C:\\Program Files\\Apache Software Foundation\\Tomcat 10.1\\webapps'
+        TOMCAT_SERVICE = 'Tomcat10'
+        APP_NAME = 'student'
+        MAVEN_REPO_URL = 'repo.maven.apache.org'
+        HEALTH_CHECK_RETRIES = '5'
+        HEALTH_CHECK_DELAY = '10'
+    }
+
+    stages {
+        // [Previous stages remain exactly the same...]
+        
+        stage('Start Tomcat') {
+            steps {
+                script {
+                    echo "=== Starting Tomcat Service ==="
+                    bat "net start ${TOMCAT_SERVICE}"
+                    
+                    // Wait for Tomcat to fully start
+                    sleep(time: 20, unit: 'SECONDS')
+                    
+                    // Verify service started
+                    def startCheck = bat(
+                        script: "sc query ${TOMCAT_SERVICE} | findstr STATE",
+                        returnStdout: true
+                    ).trim()
+                    
+                    if (!startCheck.contains("RUNNING")) {
+                        error "❌ Failed to start Tomcat service"
+                    } else {
+                        echo "✅ Tomcat service started successfully"
+                    }
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    echo "=== Verifying Deployment ==="
+                    
+                    // 1. Verify WAR file exists
+                    bat """
+                        if not exist "${TOMCAT_WEBAPPS}\\${APP_NAME}.war" (
+                            echo ❌ WAR file not deployed
+                            exit 1
+                        )
+                        echo ✅ WAR file deployed
+                    """
+                    
+                    // 2. Health checks with retry logic
+                    def healthy = false
+                    def endpoints = [
+                        "http://localhost:8080/${APP_NAME}/actuator/health",  // Spring Boot Actuator
+                        "http://localhost:8080/${APP_NAME}/api/health",
+                        "http://localhost:8080/${APP_NAME}/health"
+                    ]
+                    
+                    def retries = env.HEALTH_CHECK_RETRIES.toInteger()
+                    def delay = env.HEALTH_CHECK_DELAY.toInteger()
+                    
+                    while (retries > 0 && !healthy) {
+                        echo "Health check attempt ${env.HEALTH_CHECK_RETRIES.toInteger() - retries + 1}/${env.HEALTH_CHECK_RETRIES}"
+                        
+                        for (endpoint in endpoints) {
+                            try {
+                                def status = bat(
+                                    script: """
+                                        curl -s -o nul -w "%%{http_code}" --connect-timeout 10 "${endpoint}"
+                                    """,
+                                    returnStdout: true
+                                ).trim()
+                                
+                                if (status == "200") {
+                                    healthy = true
+                                    echo "✅ Endpoint ${endpoint} is healthy (HTTP 200)"
+                                    break
+                                } else {
+                                    echo "⚠️ Endpoint ${endpoint} returned HTTP ${status}"
+                                }
+                            } catch (Exception e) {
+                                echo "⚠️ Failed to check ${endpoint}: ${e.getMessage()}"
+                            }
+                        }
+                        
+                        if (!healthy) {
+                            sleep(time: delay, unit: 'SECONDS')
+                            retries--
+                            delay *= 2 // Exponential backoff
+                        }
+                    }
+                    
+                    if (!healthy) {
+                        echo "❌ No healthy endpoints found after all retries"
+                        echo "Checking Tomcat logs..."
+                        bat "type \"C:\\Program Files\\Apache Software Foundation\\Tomcat 10.1\\logs\\catalina.out\""
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "=== Cleaning Workspace ==="
+            deleteDir()
+            
+            echo """
+            === Deployment Summary ===
+            Backup Location: ${env.BACKUP_FILE ?: 'N/A'}
+            Tomcat Status: ${currentBuild.result == 'SUCCESS' ? 'Running' : 'Check logs'}
+            Build Source: Online
+            """
+        }
+        success {
+            echo "🎉 Pipeline completed successfully!"
+        }
+        unstable {
+            echo "⚠️ Pipeline completed with warnings"
+            echo "Application endpoints not responding - check Tomcat logs"
+        }
+        failure {
+            echo "❌ Pipeline failed"
+            echo "Troubleshooting Steps:"
+            echo "1. Verify Tomcat service logs"
+            echo "2. Check application startup in catalina.out"
+            echo "3. Verify health endpoint paths in application"
+        }
+    }
+}
