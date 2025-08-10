@@ -1032,3 +1032,122 @@ Tomcat start success: Unknown
 [Pipeline] End of Pipeline
 ERROR: script returned exit code 1
 Finished: FAILURE
+
+
+
+
+Started by user Taran Singh Duggal
+Obtained Jenkinsfile from git https://github.com/Taran-Duggal/DockerDb
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on Jenkins in C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Declarative: Checkout SCM)
+[Pipeline] checkout
+The recommended git tool is: NONE
+No credentials specified
+Cloning the remote Git repository
+Cloning repository https://github.com/Taran-Duggal/DockerDb
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe init C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1 # timeout=10
+Fetching upstream changes from https://github.com/Taran-Duggal/DockerDb
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe --version # timeout=10
+ > git --version # 'git version 2.45.1.windows.1'
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe fetch --tags --force --progress -- https://github.com/Taran-Duggal/DockerDb +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe config remote.origin.url https://github.com/Taran-Duggal/DockerDb # timeout=10
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/* # timeout=10
+Avoid second fetch
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe rev-parse "refs/remotes/origin/main^{commit}" # timeout=10
+Checking out Revision 1ca0f5a3d045ef61815261ac6b10d78e402291d5 (refs/remotes/origin/main)
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe config core.sparsecheckout # timeout=10
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe checkout -f 1ca0f5a3d045ef61815261ac6b10d78e402291d5 # timeout=10
+Commit message: "changes seek"
+ > C:\Users\duggal.84\AppData\Local\Programs\Git\cmd\git.exe rev-list --no-walk 628006ba5aa56103d10a2fce4cbdfafcd98c11e1 # timeout=10
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Build)
+[Pipeline] script
+[Pipeline] {
+[Pipeline] echo
+=== Starting Maven Build ===
+[Pipeline] bat
+curl: (2) no URL specified
+curl: try 'curl --help' for more information
+
+C:\ProgramData\Jenkins\.jenkins\workspace\pipeline1>curl -s -o nul -w "//repo.maven.apache.org/maven2/ 
+[Pipeline] }
+[Pipeline] // script
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Pre-Deployment Checks)
+Stage "Pre-Deployment Checks" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Create Backup)
+Stage "Create Backup" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Stop Tomcat)
+Stage "Stop Tomcat" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Deploy Application)
+Stage "Deploy Application" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Start Tomcat)
+Stage "Start Tomcat" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Verify Deployment)
+Stage "Verify Deployment" skipped due to earlier failure(s)
+[Pipeline] getContext
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Declarative: Post Actions)
+[Pipeline] echo
+=== Cleaning Workspace ===
+[Pipeline] deleteDir
+[Pipeline] echo
+
+            === Deployment Summary ===
+            Backup Location: N/A
+            Tomcat Status: Was stopped
+            Stop Method: not_needed
+            Start Success: N/A
+            
+[Pipeline] echo
+
+            â�Œ Deployment failed
+            Rollback Options:
+            1. Restore backup: copy "null" "C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\student.war"
+            2. Check Tomcat logs: type "%CATALINA_HOME%\logs\catalina.out"
+            
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 2
+Finished: FAILURE
