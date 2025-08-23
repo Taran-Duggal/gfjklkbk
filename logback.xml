@@ -1,0 +1,515 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Common Properties -->
+    <property name="log-path" value="${LOG_PATH:-logs}" />
+    <property name="max-file-size" value="10MB" />
+    <property name="file-pattern" value="%d{yy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n" />
+
+    <!-- Console Appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Main Application Logs -->
+    <appender name="MAIN_APP" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log-path}/IB-application.log</file>
+        <encoder><pattern>${file-pattern}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${log-path}/IB-application.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>${max-file-size}</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Error Logs -->
+    <appender name="ERROR_LOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log-path}/IB-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder><pattern>${file-pattern}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${log-path}/IB-error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>${max-file-size}</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ========== CONTROLLER APPENDERS ========== -->
+    
+<!--    &lt;!&ndash; Auth Controller &ndash;&gt;-->
+<!--    <appender name="AUTH_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-auth-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-auth-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Category Controller &ndash;&gt;-->
+<!--    <appender name="CATEGORY_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-category-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-category-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Disposition Controller &ndash;&gt;-->
+<!--    <appender name="DISPOSITION_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-disposition-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-disposition-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+    <!-- Script Search Controller -->
+    <appender name="SCRIPT_SEARCH_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log-path}/IB-script-search-controller.log</file>
+        <encoder><pattern>${file-pattern}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${log-path}/IB-script-search-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>${max-file-size}</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+<!--    &lt;!&ndash; User Controller &ndash;&gt;-->
+<!--    <appender name="USER_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-user-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-user-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Category Type Controller &ndash;&gt;-->
+<!--    <appender name="CATEGORY_TYPE_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-category-type-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-category-type-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Core Category Controller &ndash;&gt;-->
+<!--    <appender name="CORE_CATEGORY_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-core-category-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-core-category-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Category SubType Controller &ndash;&gt;-->
+<!--    <appender name="CATEGORY_SUBTYPE_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-category-subtype-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-category-subtype-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Excel Data Controller &ndash;&gt;-->
+<!--    <appender name="EXCEL_DATA_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-excel-data-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-excel-data-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Location Controller &ndash;&gt;-->
+<!--    <appender name="LOCATION_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-location-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-location-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Location Link Controller &ndash;&gt;-->
+<!--    <appender name="LOCATION_LINK_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-location-link-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-location-link-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Logout Controller &ndash;&gt;-->
+<!--    <appender name="LOGOUT_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-logout-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-logout-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Process Controller &ndash;&gt;-->
+<!--    <appender name="PROCESS_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-process-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-process-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Role Controller &ndash;&gt;-->
+<!--    <appender name="ROLE_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-role-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-role-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Service Details Controller &ndash;&gt;-->
+<!--    <appender name="SERVICE_DETAILS_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-service-details-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-service-details-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+    <!-- Bank API Controller -->
+    <appender name="BANK_API_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log-path}/IB-bank-api-controller.log</file>
+        <encoder><pattern>${file-pattern}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${log-path}/IB-service-details-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>${max-file-size}</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+<!--    &lt;!&ndash; Status Controller &ndash;&gt;-->
+<!--    <appender name="STATUS_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-status-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-status-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+    <!-- Sub Disposition Controller -->
+<!--    <appender name="SUB_DISPOSITION_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-sub-disposition-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-sub-disposition-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+    <!-- URL Master SSO Controller -->
+<!--    <appender name="URL_MASTER_SSO_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-url-master-sso-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-url-master-sso-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+    <!-- SSO Controller -->
+    <appender name="SSO_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log-path}/IB-sso-controller.log</file>
+        <encoder><pattern>${file-pattern}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${log-path}/IB-sso-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>${max-file-size}</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+<!--    &lt;!&ndash; User Group Controller &ndash;&gt;-->
+<!--    <appender name="USER_GROUP_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>${log-path}/IB-user-group-controller.log</file>-->
+<!--        <encoder><pattern>${file-pattern}</pattern></encoder>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>${log-path}/IB-user-group-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>-->
+<!--            <maxFileSize>${max-file-size}</maxFileSize>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--    </appender>-->
+
+    <!-- ========== ASYNC APPENDERS ========== -->
+    <appender name="ASYNC_MAIN" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="MAIN_APP" />
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+
+    <appender name="ASYNC_ERROR" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="ERROR_LOG" />
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+
+<!--    &lt;!&ndash; ========== LOGGERS ========== &ndash;&gt;-->
+<!--    -->
+<!--    &lt;!&ndash; Auth &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.AuthController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="AUTH_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.AuthService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="AUTH_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Category &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.CategoryController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="CATEGORY_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.CategoryService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="CATEGORY_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Disposition &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.DispositionController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="DISPOSITION_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.DispositionService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="DISPOSITION_CONTROLLER" />-->
+<!--    </logger>-->
+
+    <!-- Script Search -->
+    <logger name="com.demsIB.controller.ScriptSearchController" level="DEBUG" additivity="false">
+        <appender-ref ref="SCRIPT_SEARCH_CONTROLLER" />
+        <appender-ref ref="CONSOLE" />
+    </logger>
+    <logger name="com.demsIB.service.ScriptSearchService" level="DEBUG" additivity="false">
+        <appender-ref ref="SCRIPT_SEARCH_CONTROLLER" />
+    </logger>
+
+<!--    &lt;!&ndash; User &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.UserController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="USER_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.UserService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="USER_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Category Type &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.CategoryTypeController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="CATEGORY_TYPE_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.CategoryTypeService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="CATEGORY_TYPE_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Core Category &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.CoreCategoryController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="CORE_CATEGORY_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.CoreCategoryService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="CORE_CATEGORY_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Category SubType &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.CategorySubTypeController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="CATEGORY_SUBTYPE_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.CategorySubTypeService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="CATEGORY_SUBTYPE_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Excel Data &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.ExcelDataController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="EXCEL_DATA_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.ExcelDataService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="EXCEL_DATA_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Location &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.LocationController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="LOCATION_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.LocationService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="LOCATION_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Location Link &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.LocationLinkController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="LOCATION_LINK_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.LocationLinkService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="LOCATION_LINK_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Logout &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.LogoutController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="LOGOUT_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.LogoutService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="LOGOUT_CONTROLLER" />-->
+<!--    </logger>-->
+    
+    <!-- Bank API Controller -->
+    <appender name="BANK_API_CONTROLLER" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log-path}/IB-bank-api-controller.log</file>
+        <encoder><pattern>${file-pattern}</pattern></encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${log-path}/IB-bank-api-controller.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>${max-file-size}</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Bank API Services -->
+    <logger name="com.demsIB.integration.bank" level="DEBUG" additivity="false">
+        <appender-ref ref="MAIN_APP" />
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="BANK_API_CONTROLLER" />
+    </logger>
+    
+    <!-- Bank API Controller specific logger -->
+    <logger name="com.demsIB.integration.bank.controller" level="DEBUG" additivity="false">
+        <appender-ref ref="BANK_API_CONTROLLER" />
+        <appender-ref ref="CONSOLE" />
+    </logger>
+
+<!--    &lt;!&ndash; Process &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.ProcessController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="PROCESS_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.ProcessService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="PROCESS_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Role &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.RoleController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="ROLE_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.RoleService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="ROLE_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Service Details &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.ServiceDetailsController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="SERVICE_DETAILS_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.ServiceDetailsService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="SERVICE_DETAILS_CONTROLLER" />-->
+<!--    </logger>-->
+    
+    <!-- Bank API Controller Logger -->
+    <logger name="com.demsIB.integration.bank.controller.BankApiController" level="DEBUG" additivity="false">
+        <appender-ref ref="BANK_API_CONTROLLER" />
+        <appender-ref ref="CONSOLE" />
+    </logger>
+    <logger name="com.demsIB.integration.bank.service" level="DEBUG" additivity="false">
+        <appender-ref ref="BANK_API_CONTROLLER" />
+    </logger>
+
+<!--    &lt;!&ndash; Status &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.StatusController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="STATUS_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+
+
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.StatusService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="STATUS_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; Sub Disposition &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.SubDispositionController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="SUB_DISPOSITION_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.SubDispositionService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="SUB_DISPOSITION_CONTROLLER" />-->
+<!--    </logger>-->
+
+<!--    &lt;!&ndash; URL Master SSO &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.URLMasterSSOController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="URL_MASTER_SSO_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.URLMasterSSOService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="URL_MASTER_SSO_CONTROLLER" />-->
+<!--    </logger>-->
+
+    <!-- SSO Controller -->
+    <logger name="com.demsIB.controller.SSOController" level="DEBUG" additivity="false">
+        <appender-ref ref="SSO_CONTROLLER" />
+        <appender-ref ref="CONSOLE" />
+    </logger>
+    <logger name="com.demsIB.service.SSOService" level="DEBUG" additivity="false">
+        <appender-ref ref="SSO_CONTROLLER" />
+    </logger>
+
+<!--    &lt;!&ndash; User Group &ndash;&gt;-->
+<!--    <logger name="com.demsIB.controller.UserGroupController" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="USER_GROUP_CONTROLLER" />-->
+<!--        <appender-ref ref="CONSOLE" />-->
+<!--    </logger>-->
+<!--    <logger name="com.demsIB.service.UserGroupService" level="DEBUG" additivity="false">-->
+<!--        <appender-ref ref="USER_GROUP_CONTROLLER" />-->
+<!--    </logger>-->
+
+    <!-- Root Logger -->
+    <root level="INFO">
+        <appender-ref ref="ASYNC_MAIN" />
+        <appender-ref ref="ASYNC_ERROR" />
+        <appender-ref ref="CONSOLE" />
+    </root>
+
+    <!-- Status Listener -->
+    <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" />
+
+    <!-- Shutdown hook -->
+    <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook" />
+</configuration>
