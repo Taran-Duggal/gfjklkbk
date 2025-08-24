@@ -1,0 +1,401 @@
+#user  nobody;
+worker_processes  1;
+ 
+# Enable logging for debugging
+error_log  logs/error.log  info;
+#pid        logs/nginx.pid;
+ 
+events {
+    worker_connections  1024;
+}
+ 
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+    sendfile        on;
+    keepalive_timeout  65;
+    
+    # Add debugging for SSL issues
+    log_format debug_format '$remote_addr - $remote_user [$time_local] "$request" '
+                           '$status $body_bytes_sent "$http_referer" '
+                           '"$http_user_agent" "$ssl_protocol/$ssl_cipher"';
+
+    # HTTPS Frontend Server Configuration
+    server {
+        listen       9090 ssl;
+        http2        on;
+        # Frontend server names (AZIBDRCRMWUAT is the frontend server)
+        server_name  AZIBDRCRMWUAT azibdrcrmwuat localhost 10.68.3.25;
+        
+        # SSL Certificate Configuration (separate files if needed)
+        ssl_certificate     C:/nginx/ssl/nginx.crt;
+        ssl_certificate_key C:/nginx/ssl/nginx.key;
+        
+        # Permissive SSL settings for self-signed certificates
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA';
+        ssl_prefer_server_ciphers off;
+        ssl_session_cache   shared:SSL:10m;
+        ssl_session_timeout 10m;
+        
+        # Disable strict SSL checks for development
+        ssl_session_tickets off;
+        ssl_stapling off;
+        ssl_stapling_verify off;
+        ssl_verify_client off;
+        
+        # Logging
+        access_log logs/access.log debug_format;
+        error_log logs/error.log info;
+        
+        # Security headers (relaxed for development)
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header X-Frontend-Server "AZIBDRCRMWUAT" always;
+        
+        # Root location for testing SSL
+        location = / {
+            return 200 'Frontend SSL is working! Server: $server_name, SSL Protocol: $ssl_protocol, SSL Cipher: $ssl_cipher';
+            add_header Content-Type text/plain;
+        }
+        
+        # Test endpoint for SSL verification
+        location /ssl-test {
+            return 200 '{"status":"SSL OK","server":"$server_name","frontend":"AZIBDRCRMWUAT","backend":"AZIBDRCRMAUAT:9090","protocol":"$ssl_protocol","cipher":"$ssl_cipher","time":"$time_local"}';
+            add_header Content-Type application/json;
+            add_header Access-Control-Allow-Origin *;
+        }
+        
+        # Serve React frontend from /inboundCRM/ path
+        location /inboundCRM/ {
+            alias html/inboundCRM/;
+            index index.html;
+            try_files $uri $uri/ /inboundCRM/index.html;
+            
+            # CORS headers for frontend
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+            
+            # Add cache headers for static assets
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+                add_header Access-Control-Allow-Origin * always;
+            }
+        }
+        
+        # Proxy API requests to HTTPS Backend Server (AZIBDRCRMAUAT:9443)
+        location /inbound/api/ {
+            # Add debugging info
+            add_header X-Debug-Backend "AZIBDRCRMAUAT:9090" always;
+            add_header X-Debug-Frontend "AZIBDRCRMWUAT:9090" always;
+            
+            # Backend proxy - HTTPS backend server
+            proxy_pass https://AZIBDRCRMAUAT:9090/inbound/api/;
+            
+            # Headers for proper forwarding
+            proxy_set_header Host AZIBDRCRMAUAT;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $server_port;
+            proxy_set_header Connection "";
+            
+            # SSL settings for backend communication
+            proxy_ssl_verify off;
+            proxy_ssl_protocols TLSv1.2 TLSv1.3;
+            proxy_ssl_server_name on;
+            proxy_ssl_session_reuse on;
+            
+            # Connection settings with proper timeouts
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+            
+            # Retry settings
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_next_upstream_tries 3;
+            proxy_next_upstream_timeout 30s;
+            
+            # Handle CORS properly
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
+            add_header 'Access-Control-Allow-Headers' 'Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With' always;
+            add_header 'Access-Control-Max-Age' 86400 always;
+            
+            # Handle preflight requests
+            if ($request_method = 'OPTIONS') {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Credentials' 'true' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
+                add_header 'Access-Control-Allow-Headers' 'Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With' always;
+                add_header 'Access-Control-Max-Age' 86400 always;
+                add_header 'Content-Length' 0;
+                add_header 'Content-Type' 'text/plain charset=UTF-8';
+                return 204;
+            }
+        }
+        
+        # Proxy root API requests to HTTPS Backend Server (AZIBDRCRMAUAT:9443)
+        location /inbound/ {
+            # Add debugging info
+            add_header X-Debug-Backend "AZIBDRCRMAUAT:9090" always;
+            add_header X-Debug-Frontend "AZIBDRCRMWUAT:9090" always;
+            
+            # Backend proxy to HTTPS backend server
+            proxy_pass https://AZIBDRCRMAUAT:9090/inbound/;
+            
+            # Headers for proper forwarding
+            proxy_set_header Host AZIBDRCRMAUAT;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $server_port;
+            proxy_set_header Connection "";
+            
+            # SSL settings for backend communication
+            proxy_ssl_verify off;
+            proxy_ssl_protocols TLSv1.2 TLSv1.3;
+            proxy_ssl_server_name on;
+            proxy_ssl_session_reuse on;
+            
+            # Connection settings with proper timeouts
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+            proxy_buffering off;
+            proxy_request_buffering off;
+            
+            # Retry settings
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_next_upstream_tries 3;
+            proxy_next_upstream_timeout 30s;
+            
+            # Handle CORS properly
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
+            add_header 'Access-Control-Allow-Headers' 'Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With' always;
+            add_header 'Access-Control-Max-Age' 86400 always;
+            
+            # Handle preflight requests
+            if ($request_method = 'OPTIONS') {
+                add_header 'Access-Control-Allow-Origin' '*' always;
+                add_header 'Access-Control-Allow-Credentials' 'true' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
+                add_header 'Access-Control-Allow-Headers' 'Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With' always;
+                add_header 'Access-Control-Max-Age' 86400 always;
+                add_header 'Content-Length' 0;
+                add_header 'Content-Type' 'text/plain charset=UTF-8';
+                return 204;
+            }
+        }
+        
+        # Health check endpoint (check backend health)
+        location /health {
+            proxy_pass https://AZIBDRCRMAUAT:9090/actuator/health;
+            proxy_set_header Host AZIBDRCRMAUAT;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_ssl_verify off;
+            add_header Access-Control-Allow-Origin * always;
+        }
+        
+        # Frontend health check
+        location /frontend-health {
+            return 200 '{"status":"OK","frontend":"AZIBDRCRMWUAT:9090","backend":"AZIBDRCRMAUAT:9090","ssl":"enabled","time":"$time_local"}';
+            add_header Content-Type application/json;
+            add_header Access-Control-Allow-Origin * always;
+        }
+        
+        # Error pages
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+            add_header Access-Control-Allow-Origin * always;
+        }
+    }
+}
+
+
+
+
+
+@echo off
+REM Enhanced SSL Certificate Generation using keytool and OpenSSL
+REM Run this as Administrator after installing Java and OpenSSL
+ 
+echo Creating SSL certificate for AZIBDRCRMWUAT frontend server...
+ 
+REM Create SSL directory
+if not exist "C:\nginx\ssl" mkdir "C:\nginx\ssl"
+cd /d "C:\nginx\ssl"
+ 
+REM Clean up existing files
+del nginx.* 2>nul
+ 
+echo.
+echo Generating certificate with keytool...
+echo.
+ 
+REM Generate certificate with Subject Alternative Names (SAN)
+keytool -genkeypair ^
+    -alias nginx ^
+    -keyalg RSA ^
+    -keysize 2048 ^
+    -validity 365 ^
+    -keystore nginx.jks ^
+    -storepass nginx123 ^
+    -keypass nginx123 ^
+    -dname "CN=AZIBDRCRMWUAT" ^
+    -ext SAN=dns:AZIBDRCRMWUAT,dns:azibdrcrmwuat,dns:localhost,ip:10.68.3.25
+ 
+if %errorlevel% neq 0 (
+    echo ERROR: Certificate generation failed!
+    pause
+    exit /b 1
+)
+ 
+REM Convert to PKCS12 for easier handling
+keytool -importkeystore ^
+    -srckeystore nginx.jks ^
+    -srcstorepass nginx123 ^
+    -destkeystore nginx.p12 ^
+    -deststorepass nginx123 ^
+    -deststoretype PKCS12
+ 
+REM Export certificate in PEM format
+keytool -exportcert ^
+    -alias nginx ^
+    -keystore nginx.jks ^
+    -storepass nginx123 ^
+    -rfc ^
+    -file nginx.crt
+ 
+echo.
+echo Checking for OpenSSL...
+ 
+REM Check if OpenSSL is available
+openssl version >nul 2>&1
+if %errorlevel% equ 0 (
+    echo OpenSSL found! Extracting private key...
+    REM Extract private key from PKCS12 file
+    openssl pkcs12 -in nginx.p12 -passin pass:nginx123 -out nginx.key -nocerts -nodes
+    if %errorlevel% equ 0 (
+        echo.
+        echo SUCCESS: All certificate files created:
+        echo - nginx.crt (Certificate)
+        echo - nginx.key (Private Key)
+        echo - nginx.jks (Java KeyStore)
+        echo - nginx.p12 (PKCS12 format)
+        echo.
+        echo Your nginx configuration should work now!
+        echo.
+    ) else (
+        echo ERROR: Failed to extract private key!
+        goto :show_manual_options
+    )
+) else (
+    echo OpenSSL not found in PATH!
+    goto :show_manual_options
+)
+ 
+goto :install_cert
+ 
+:show_manual_options
+echo.
+echo MANUAL OPTIONS TO CREATE nginx.key:
+echo.
+echo OPTION 1 - Install OpenSSL and run:
+echo   cd C:\nginx\ssl
+echo   openssl pkcs12 -in nginx.p12 -passin pass:nginx123 -out nginx.key -nocerts -nodes
+echo.
+echo OPTION 2 - Use PowerShell (if you have OpenSSL PowerShell module):
+echo   Import-Module OpenSSL
+echo   Export-OpenSSLKey -InputFile nginx.p12 -OutputFile nginx.key -Password nginx123
+echo.
+echo OPTION 3 - Download and install OpenSSL from:
+echo   https://slproweb.com/products/Win32OpenSSL.html
+echo   Then run this script again.
+echo.
+ 
+:install_cert
+echo For Windows certificate trust:
+echo 1. Double-click nginx.crt
+echo 2. Install to "Trusted Root Certification Authorities"
+echo.
+ 
+REM Test nginx configuration
+echo Testing nginx configuration...
+cd /d C:\nginx
+nginx -t
+ 
+if %errorlevel% equ 0 (
+    echo.
+    echo Nginx configuration test PASSED!
+    echo You can now run: nginx -s reload
+) else (
+    echo.
+    echo Nginx configuration test FAILED!
+    echo Please check the nginx.conf file and certificate paths.
+)
+ 
+echo.
+pause
+
+
+
+
+
+C:\nginx>nginx -s reload
+nginx: [emerg] cannot load certificate key "C:/nginx/ssl/nginx.p12": PEM_read_bio_PrivateKey() failed (SSL: error:1E08010C:DECODER routines::unsupported:No supported data to decode. Input type: PEM)
+ 
+C:\nginx>cd ssl
+ 
+C:\nginx\ssl>generate-cert.bat
+Creating SSL certificate for AZIBDRCRMWUAT frontend server...
+ 
+Generating certificate with keytool...
+ 
+Illegal option:
+ 
+keytool -genkeypair [OPTION]...
+ 
+Generates a key pair
+ 
+Options:
+ 
+-alias <alias>          alias name of the entry to process
+-keyalg <alg>           key algorithm name
+-keysize <size>         key bit size
+-groupname <name>       Group name. For example, an Elliptic Curve name.
+-sigalg <alg>           signature algorithm name
+-dname <name>           distinguished name
+-startdate <date>       certificate validity start date/time
+-ext <value>            X.509 extension
+-validity <days>        validity number of days
+-keypass <arg>          key password
+-keystore <keystore>    keystore name
+-signer <alias>         signer alias
+-signerkeypass <arg>    signer key password
+-storepass <arg>        keystore password
+-storetype <type>       keystore type
+-providername <name>    provider name
+-addprovider <name>     add security provider by name (e.g. SunPKCS11)
+   [-providerarg <arg>]    configure argument for -addprovider
+-providerclass <class>  add security provider by fully-qualified class name
+   [-providerarg <arg>]    configure argument for -providerclass
+-providerpath <list>    provider classpath
+-v                      verbose output
+-protected              password through protected mechanism
+ 
+Use "keytool -?, -h, or --help" for this help message
+ERROR: Certificate generation failed!
