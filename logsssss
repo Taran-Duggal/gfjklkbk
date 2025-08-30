@@ -1,0 +1,333 @@
+I'll help you configure separate log files for each API endpoint in your BankApiController. Based on your logback configuration, you'll need to create individual appenders for each API method.
+
+## Step 1: Add Appenders for Each API Endpoint
+
+Add these appender configurations to your logback.xml file:
+
+```xml
+<!-- Bank API Individual Appenders -->
+<appender name="BANK_CUSTOMERS_DROPDOWN" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-customers-dropdown.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-customers-dropdown.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<appender name="BANK_SEARCH_BY_MOBILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-search-by-mobile.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-search-by-mobile.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<appender name="BANK_CUSTOMER_DETAILS" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-customer-details.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-customer-details.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<appender name="BANK_MINI_STATEMENT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-mini-statement.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-mini-statement.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<appender name="BANK_RTGS_ENQUIRY" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-rtgs-enquiry.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-rtgs-enquiry.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<appender name="BANK_NEFT_ENQUIRY" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-neft-enquiry.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-neft-enquiry.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<!-- Continue adding appenders for all your API endpoints... -->
+<appender name="BANK_CHEQUE_BOOK_REQUEST" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-cheque-book-request.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-cheque-book-request.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<appender name="BANK_STANDING_INSTRUCTIONS" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-standing-instructions.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-standing-instructions.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<appender name="BANK_EMAIL_STATEMENT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-email-statement.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-email-statement.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<appender name="BANK_SMS_ALERTS" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-sms-alerts.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-sms-alerts.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<appender name="BANK_STOP_CHEQUE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${log-path}/IB-bank-stop-cheque.log</file>
+    <encoder><pattern>${file-pattern}</pattern></encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>${log-path}/IB-bank-stop-cheque.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>${max-file-size}</maxFileSize>
+        <maxHistory>30</maxHistory>
+    </rollingPolicy>
+</appender>
+
+<!-- Add appenders for all remaining API endpoints similarly... -->
+```
+
+## Step 2: Create Individual Loggers for Each API
+
+Add these logger configurations:
+
+```xml
+<!-- Individual API Loggers -->
+<logger name="BANK_CUSTOMERS_DROPDOWN_LOGGER" level="DEBUG" additivity="false">
+    <appender-ref ref="BANK_CUSTOMERS_DROPDOWN" />
+    <appender-ref ref="CONSOLE" />
+</logger>
+
+<logger name="BANK_SEARCH_BY_MOBILE_LOGGER" level="DEBUG" additivity="false">
+    <appender-ref ref="BANK_SEARCH_BY_MOBILE" />
+    <appender-ref ref="CONSOLE" />
+</logger>
+
+<logger name="BANK_CUSTOMER_DETAILS_LOGGER" level="DEBUG" additivity="false">
+    <appender-ref ref="BANK_CUSTOMER_DETAILS" />
+    <appender-ref ref="CONSOLE" />
+</logger>
+
+<logger name="BANK_MINI_STATEMENT_LOGGER" level="DEBUG" additivity="false">
+    <appender-ref ref="BANK_MINI_STATEMENT" />
+    <appender-ref ref="CONSOLE" />
+</logger>
+
+<logger name="BANK_RTGS_ENQUIRY_LOGGER" level="DEBUG" additivity="false">
+    <appender-ref ref="BANK_RTGS_ENQUIRY" />
+    <appender-ref ref="CONSOLE" />
+</logger>
+
+<logger name="BANK_NEFT_ENQUIRY_LOGGER" level="DEBUG" additivity="false">
+    <appender-ref ref="BANK_NEFT_ENQUIRY" />
+    <appender-ref ref="CONSOLE" />
+</logger>
+
+<!-- Continue for all API endpoints... -->
+```
+
+## Step 3: Modify Your Controller to Use Specific Loggers
+
+Update your BankApiController to use different loggers for each API:
+
+```java
+package com.demsIB.integration.bank.controller;
+
+// ... existing imports ...
+import org.slf4j.LoggerFactory;
+
+@RestController
+@RequestMapping("/api/v1/bank")
+public class BankApiController {
+
+    // Individual loggers for each API
+    private static final Logger customersDropdownLogger = LoggerFactory.getLogger("BANK_CUSTOMERS_DROPDOWN_LOGGER");
+    private static final Logger searchByMobileLogger = LoggerFactory.getLogger("BANK_SEARCH_BY_MOBILE_LOGGER");
+    private static final Logger customerDetailsLogger = LoggerFactory.getLogger("BANK_CUSTOMER_DETAILS_LOGGER");
+    private static final Logger miniStatementLogger = LoggerFactory.getLogger("BANK_MINI_STATEMENT_LOGGER");
+    private static final Logger rtgsEnquiryLogger = LoggerFactory.getLogger("BANK_RTGS_ENQUIRY_LOGGER");
+    private static final Logger neftEnquiryLogger = LoggerFactory.getLogger("BANK_NEFT_ENQUIRY_LOGGER");
+    private static final Logger chequeBookRequestLogger = LoggerFactory.getLogger("BANK_CHEQUE_BOOK_REQUEST_LOGGER");
+    private static final Logger standingInstructionsLogger = LoggerFactory.getLogger("BANK_STANDING_INSTRUCTIONS_LOGGER");
+    private static final Logger emailStatementLogger = LoggerFactory.getLogger("BANK_EMAIL_STATEMENT_LOGGER");
+    private static final Logger smsAlertsLogger = LoggerFactory.getLogger("BANK_SMS_ALERTS_LOGGER");
+    private static final Logger stopChequeLogger = LoggerFactory.getLogger("BANK_STOP_CHEQUE_LOGGER");
+    // Add loggers for all other endpoints...
+
+    @GetMapping("/customers/dropdown")
+    public ResponseEntity<List<CustomerDropdown>> getCustomerDropdown() {
+        customersDropdownLogger.info("Fetching sample customers for dropdown");
+        List<CustomerDropdown> customers = Arrays.asList(
+                new CustomerDropdown("3199561365", "Customer 1"),
+                new CustomerDropdown("7921396438", "Customer 2"),
+                new CustomerDropdown("3220295082", "Customer 3")
+        );
+        customersDropdownLogger.info("Returning {} customers for dropdown", customers.size());
+        return ResponseEntity.ok(customers);
+    }
+
+    @PostMapping("/customers/search-by-mobile")
+    public ResponseEntity<MobileSearchResponse> searchCustomerByMobile(@RequestBody MobileSearchRequestDto request) {
+        searchByMobileLogger.info("Searching customer by mobile: {}", request.getMobileNumber());
+        try {
+            MobileSearchResponse response = bankApiService1.searchCustomerByMobile(request);
+            searchByMobileLogger.info("Mobile search completed successfully for: {}", request.getMobileNumber());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            searchByMobileLogger.error("Error searching customer by mobile: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/customers/{customerNumber}")
+    public ResponseEntity<BankCustomerResponse> getCustomerDetails(@PathVariable String customerNumber) {
+        customerDetailsLogger.info("Fetching details for customer: {}", customerNumber);
+        try {
+            BankCustomerResponse response = bankApiService1.getCustomerDetails(customerNumber);
+            customerDetailsLogger.info("Customer details fetched successfully for: {}", customerNumber);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            customerDetailsLogger.error("Error fetching customer details: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("/mini-statement")
+    public ResponseEntity<MiniStatementResponse> getMiniStatement(@RequestBody MiniStatementRequestDto request) {
+        miniStatementLogger.info("Fetching mini statement for account: {}", request.getAccountNumber());
+        try {
+            MiniStatementResponse response = bankApiService1.getMiniStatement(request);
+            miniStatementLogger.info("Mini statement fetched successfully for account: {}", request.getAccountNumber());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            miniStatementLogger.error("Error fetching mini statement: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // Continue updating all methods with their specific loggers...
+    @PostMapping("/rtgs-enquiry")
+    public ResponseEntity<RTGSResponse> getRTGSDetails(@RequestBody RTGSRequestDto request) {
+        rtgsEnquiryLogger.info("Fetching RTGS details for UTR: {}", request.getUtrNumber());
+        try {
+            RTGSResponse response = bankApiService1.getRTGSDetails(request);
+            rtgsEnquiryLogger.info("RTGS details fetched successfully for UTR: {}", request.getUtrNumber());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            rtgsEnquiryLogger.error("Error fetching RTGS details: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("/neft-enquiry")
+    public ResponseEntity<NEFTResponse> getNEFTDetails(@RequestBody NEFTRequestDto request) {
+        neftEnquiryLogger.info("Fetching NEFT details for UTR: {}", request.getUtrNumber());
+        try {
+            NEFTResponse response = bankApiService1.getNEFTDetails(request);
+            neftEnquiryLogger.info("NEFT details fetched successfully for UTR: {}", request.getUtrNumber());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            neftEnquiryLogger.error("Error fetching NEFT details: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    // Update all remaining methods similarly...
+}
+```
+
+## Step 4: Alternative Approach Using MDC (Optional)
+
+If you prefer to keep using the same logger but route to different files based on the API endpoint, you can use MDC:
+
+```xml
+<!-- Add this appender for MDC-based routing -->
+<appender name="BANK_API_ROUTING" class="ch.qos.logback.classic.sift.SiftingAppender">
+    <discriminator>
+        <key>apiEndpoint</key>
+        <defaultValue>unknown</defaultValue>
+    </discriminator>
+    <sift>
+        <appender name="FILE-${apiEndpoint}" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${log-path}/IB-bank-${apiEndpoint}.log</file>
+            <encoder><pattern>${file-pattern}</pattern></encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${log-path}/IB-bank-${apiEndpoint}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+                <maxFileSize>${max-file-size}</maxFileSize>
+                <maxHistory>30</maxHistory>
+            </rollingPolicy>
+        </appender>
+    </sift>
+</appender>
+
+<logger name="com.demsIB.integration.bank.controller.BankApiController" level="DEBUG" additivity="false">
+    <appender-ref ref="BANK_API_ROUTING" />
+    <appender-ref ref="CONSOLE" />
+</logger>
+```
+
+Then in your controller, set the MDC context:
+
+```java
+import org.slf4j.MDC;
+
+@PostMapping("/customers/search-by-mobile")
+public ResponseEntity<MobileSearchResponse> searchCustomerByMobile(@RequestBody MobileSearchRequestDto request) {
+    MDC.put("apiEndpoint", "search-by-mobile");
+    logger.info("Searching customer by mobile: {}", request.getMobileNumber());
+    try {
+        MobileSearchResponse response = bankApiService1.searchCustomerByMobile(request);
+        logger.info("Mobile search completed successfully");
+        return ResponseEntity.ok(response);
+    } catch (Exception e) {
+        logger.error("Error searching customer by mobile: {}", e.getMessage());
+        return ResponseEntity.internalServerError().build();
+    } finally {
+        MDC.remove("apiEndpoint");
+    }
+}
+```
+
+## Complete Solution
+
+I recommend using the first approach (individual loggers) as it's more explicit and easier to manage. You'll need to:
+
+1. Add appenders for all your API endpoints in logback.xml
+2. Create individual loggers for each API
+3. Update your controller to use the specific loggers for each method
+4. Repeat for all 30+ API endpoints in your controller
+
+This will give you separate log files for each API endpoint as requested by your managers.
