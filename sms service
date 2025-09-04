@@ -1,0 +1,570 @@
+# SMS Service Implementation for Indian Bank Domestic Transactional SMS
+
+Based on the API specification document provided, I'll implement the SMS service integration for your Spring Boot application.
+
+## 1. SMS Service Configuration
+
+First, add these properties to your `application.properties`:
+
+```properties
+# SMS Service Configuration
+sms.api.uat.endpoint=https://test-intgateway.lb.in/uat-indian-bankapi/enterprise/sms/v1/push-dm-sms
+sms.api.client-id=${SMS_CLIENT_ID}
+sms.api.client-secret=${SMS_CLIENT_SECRET}
+sms.api.channel=${SMS_CHANNEL}
+sms.api.sender-id=${SMS_SENDER_ID}
+sms.api.health-check=false
+sms.api.health-type=ALL
+
+# Store sensitive values in environment variables or secure vault
+```
+
+## 2. SMS Request/Response DTOs
+
+```java
+package com.example.workflow.dto.sms;
+
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
+
+public class SmsRequest {
+    
+    @NotBlank(message = "Mobile number is required")
+    @Pattern(regexp = "\\d{10}", message = "Mobile number must be 10 digits")
+    private String mobileNo;
+    
+    @NotBlank(message = "Message is required")
+    @Size(max = 1000, message = "Message too long")
+    private String message;
+    
+    @NotBlank(message = "Country code is required")
+    @Pattern(regexp = "91", message = "Country code must be 91")
+    private String countryCode = "91";
+    
+    // Constructors
+    public SmsRequest() {}
+    
+    public SmsRequest(String mobileNo, String message) {
+        this.mobileNo = mobileNo;
+        this.message = message;
+        this.countryCode = "91";
+    }
+    
+    // Getters and Setters
+    public String getMobileNo() { return mobileNo; }
+    public void setMobileNo(String mobileNo) { this.mobileNo = mobileNo; }
+    
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
+}
+```
+
+```java
+package com.example.workflow.dto.sms;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class SmsResponse {
+    
+    @JsonProperty("smsResult")
+    private SmsResult smsResult;
+    
+    @JsonProperty("ErrorResponse")
+    private ErrorResponse errorResponse;
+    
+    // Getters and Setters
+    public SmsResult getSmsResult() { return smsResult; }
+    public void setSmsResult(SmsResult smsResult) { this.smsResult = smsResult; }
+    
+    public ErrorResponse getErrorResponse() { return errorResponse; }
+    public void setErrorResponse(ErrorResponse errorResponse) { this.errorResponse = errorResponse; }
+    
+    public boolean isSuccess() {
+        return smsResult != null && smsResult.getBody() != null && 
+               "SUCCESS".equalsIgnoreCase(smsResult.getBody().getStatus());
+    }
+    
+    public static class SmsResult {
+        private Metadata metadata;
+        private Body body;
+        
+        // Getters and Setters
+        public Metadata getMetadata() { return metadata; }
+        public void setMetadata(Metadata metadata) { this.metadata = metadata; }
+        
+        public Body getBody() { return body; }
+        public void setBody(Body body) { this.body = body; }
+    }
+    
+    public static class Metadata {
+        private Status status;
+        
+        // Getters and Setters
+        public Status getStatus() { return status; }
+        public void setStatus(Status status) { this.status = status; }
+    }
+    
+    public static class Status {
+        private String code;
+        private String desc;
+        
+        // Getters and Setters
+        public String getCode() { return code; }
+        public void setCode(String code) { this.code = code; }
+        
+        public String getDesc() { return desc; }
+        public void setDesc(String desc) { this.desc = desc; }
+    }
+    
+    public static class Body {
+        private String message;
+        private String status;
+        private String ackId;
+        
+        // Getters and Setters
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        
+        public String getAckId() { return ackId; }
+        public void setAckId(String ackId) { this.ackId = ackId; }
+    }
+    
+    public static class ErrorResponse {
+        private Metadata metadata;
+        private AdditionalInfo additionalInfo;
+        
+        // Getters and Setters
+        public Metadata getMetadata() { return metadata; }
+        public void setMetadata(Metadata metadata) { this.metadata = metadata; }
+        
+        public AdditionalInfo getAdditionalInfo() { return additionalInfo; }
+        public void setAdditionalInfo(AdditionalInfo additionalInfo) { this.additionalInfo = additionalInfo; }
+    }
+    
+    public static class AdditionalInfo {
+        private String excepCode;
+        private String exceptext;
+        private String exceptMetaData;
+        
+        // Getters and Setters
+        public String getExcepCode() { return excepCode; }
+        public void setExcepCode(String excepCode) { this.excepCode = excepCode; }
+        
+        public String getExceptext() { return exceptext; }
+        public void setExceptext(String exceptext) { this.exceptext = exceptext; }
+        
+        public String getExceptMetaData() { return exceptMetaData; }
+        public void setExceptMetaData(String exceptMetaData) { this.exceptMetaData = exceptMetaData; }
+    }
+}
+```
+
+## 3. SMS Service Interface
+
+```java
+package com.example.workflow.service;
+
+import com.example.workflow.dto.sms.SmsRequest;
+import com.example.workflow.dto.sms.SmsResponse;
+
+public interface SmsService {
+    SmsResponse sendSms(SmsRequest smsRequest);
+    SmsResponse sendSms(String mobileNo, String message);
+    String generateInteractionId();
+}
+```
+
+## 4. SMS Service Implementation
+
+```java
+package com.example.workflow.service;
+
+import com.example.workflow.dto.sms.SmsRequest;
+import com.example.workflow.dto.sms.SmsResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.UUID;
+
+@Service
+public class SmsServiceImpl implements SmsService {
+
+    @Value("${sms.api.uat.endpoint}")
+    private String smsEndpoint;
+    
+    @Value("${sms.api.client-id}")
+    private String clientId;
+    
+    @Value("${sms.api.client-secret}")
+    private String clientSecret;
+    
+    @Value("${sms.api.channel}")
+    private String channel;
+    
+    @Value("${sms.api.sender-id}")
+    private String senderId;
+    
+    @Value("${sms.api.health-check}")
+    private String healthCheck;
+    
+    @Value("${sms.api.health-type}")
+    private String healthType;
+    
+    private final RestTemplate restTemplate;
+    
+    public SmsServiceImpl(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+    
+    @Override
+    public SmsResponse sendSms(SmsRequest smsRequest) {
+        // Prepare the request payload
+        String requestPayload = createSmsRequestPayload(smsRequest);
+        
+        // Prepare headers
+        HttpHeaders headers = createHeaders();
+        
+        // Create HTTP entity
+        HttpEntity<String> entity = new HttpEntity<>(requestPayload, headers);
+        
+        try {
+            // Make API call
+            ResponseEntity<SmsResponse> response = restTemplate.exchange(
+                smsEndpoint, 
+                HttpMethod.POST, 
+                entity, 
+                SmsResponse.class
+            );
+            
+            return response.getBody();
+        } catch (Exception e) {
+            // Handle exception and create error response
+            SmsResponse errorResponse = new SmsResponse();
+            SmsResponse.ErrorResponse error = new SmsResponse.ErrorResponse();
+            SmsResponse.Metadata metadata = new SmsResponse.Metadata();
+            SmsResponse.Status status = new SmsResponse.Status();
+            SmsResponse.AdditionalInfo additionalInfo = new SmsResponse.AdditionalInfo();
+            
+            status.setCode("500");
+            status.setDesc("Internal Server Error");
+            metadata.setStatus(status);
+            
+            additionalInfo.setExcepCode("SMS-500");
+            additionalInfo.setExceptext("Failed to send SMS");
+            additionalInfo.setExceptMetaData(e.getMessage());
+            
+            error.setMetadata(metadata);
+            error.setAdditionalInfo(additionalInfo);
+            
+            errorResponse.setErrorResponse(error);
+            
+            return errorResponse;
+        }
+    }
+    
+    @Override
+    public SmsResponse sendSms(String mobileNo, String message) {
+        SmsRequest smsRequest = new SmsRequest(mobileNo, message);
+        return sendSms(smsRequest);
+    }
+    
+    @Override
+    public String generateInteractionId() {
+        // Generate 26-digit alpha-numeric ID as per bank specification
+        // Format: {channel} + 13-digit milliseconds + 9-digit sequence
+        String channelPrefix = channel.length() >= 4 ? channel.substring(0, 4) : 
+                              String.format("%-4s", channel).replace(' ', '0');
+        
+        long milliseconds = System.currentTimeMillis();
+        String millisStr = String.format("%013d", milliseconds % 1000000000000L);
+        
+        // For simplicity, using random UUID for sequence part
+        // In production, you should use a proper sequence generator
+        String sequence = UUID.randomUUID().toString().replaceAll("[^0-9]", "");
+        sequence = sequence.length() > 9 ? sequence.substring(0, 9) : 
+                  String.format("%-9s", sequence).replace(' ', '0');
+        
+        return channelPrefix + millisStr + sequence;
+    }
+    
+    private HttpHeaders createHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-IB-Client-Id", clientId);
+        headers.set("X-IB-Client-Secret", clientSecret);
+        headers.set("Channel", channel);
+        headers.set("Content-Type", "application/json");
+        headers.set("X-API-Interaction-ID", generateInteractionId());
+        headers.set("HealthCheck", healthCheck);
+        headers.set("HealthType", healthType);
+        headers.set("SenderId", senderId);
+        
+        // Note: X-Client-Certificate is optional and only needed if certificate validation is enabled
+        
+        return headers;
+    }
+    
+    private String createSmsRequestPayload(SmsRequest smsRequest) {
+        return String.format(
+            "{\"sms\": {\"Body\": {\"Payload\": {\"mobileNo\": \"%s\", \"message\": \"%s\", \"countryCode\": \"%s\"}}}}",
+            smsRequest.getMobileNo(),
+            escapeJsonString(smsRequest.getMessage()),
+            smsRequest.getCountryCode()
+        );
+    }
+    
+    private String escapeJsonString(String input) {
+        return input.replace("\\", "\\\\")
+                   .replace("\"", "\\\"")
+                   .replace("\b", "\\b")
+                   .replace("\f", "\\f")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
+    }
+}
+```
+
+## 5. RestTemplate Configuration
+
+```java
+package com.example.workflow.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+@Configuration
+public class RestTemplateConfig {
+    
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+}
+```
+
+## 6. SMS Service Integration with Workflow
+
+Now integrate the SMS service with your workflow service:
+
+```java
+package com.example.workflow.service;
+
+import com.example.workflow.model.Script;
+import com.example.workflow.model.User;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class WorkflowService {
+    
+    @Autowired
+    private EmailService emailService;
+    
+    @Autowired
+    private SmsService smsService;
+    
+    public void submitScript(Script script, User maker, User reviewer) {
+        // Your existing logic to save script
+        
+        // Send email notification
+        emailService.sendScriptSubmittedEmail(script, maker, reviewer);
+        
+        // Send SMS notification to reviewer
+        String smsMessage = String.format(
+            "New script '%s' submitted by %s for your review. Please check your email for details.",
+            script.getTitle(), maker.getName()
+        );
+        
+        smsService.sendSms(reviewer.getMobileNumber(), smsMessage);
+    }
+    
+    public void approveScript(Script script, User reviewer, User maker) {
+        // Your existing logic to approve script
+        
+        // Send email notification
+        emailService.sendScriptApprovedEmail(script, reviewer, maker);
+        
+        // Send SMS notification to maker
+        String smsMessage = String.format(
+            "Your script '%s' has been approved by %s.",
+            script.getTitle(), reviewer.getName()
+        );
+        
+        smsService.sendSms(maker.getMobileNumber(), smsMessage);
+    }
+    
+    public void rejectScript(Script script, User reviewer, User maker, String reason) {
+        // Your existing logic to reject script
+        
+        // Send email notification
+        emailService.sendScriptRejectedEmail(script, reviewer, maker, reason);
+        
+        // Send SMS notification to maker
+        String smsMessage = String.format(
+            "Your script '%s' has been rejected. Reason: %s. Please check your email for details.",
+            script.getTitle(), reason
+        );
+        
+        smsService.sendSms(maker.getMobileNumber(), smsMessage);
+    }
+    
+    public void requestWithdrawal(Script script, User maker, User checker) {
+        // Your existing logic to request withdrawal
+        
+        // Send email notification
+        emailService.sendWithdrawRequestedEmail(script, maker, checker);
+        
+        // Send SMS notification to checker
+        String smsMessage = String.format(
+            "Withdrawal requested for script '%s' by %s. Please check your email for details.",
+            script.getTitle(), maker.getName()
+        );
+        
+        smsService.sendSms(checker.getMobileNumber(), smsMessage);
+    }
+}
+```
+
+## 7. Add Mobile Number Field to User Model
+
+Make sure your User model has a mobile number field:
+
+```java
+package com.example.workflow.model;
+
+import javax.persistence.*;
+
+@Entity
+@Table(name = "users")
+public class User {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    private String name;
+    private String email;
+    
+    @Column(name = "mobile_number", length = 10)
+    private String mobileNumber;
+    
+    // Other fields, constructors, getters, and setters
+    
+    public String getMobileNumber() { return mobileNumber; }
+    public void setMobileNumber(String mobileNumber) { this.mobileNumber = mobileNumber; }
+}
+```
+
+## 8. Controller for Manual SMS Testing (Optional)
+
+```java
+package com.example.workflow.controller;
+
+import com.example.workflow.dto.sms.SmsRequest;
+import com.example.workflow.dto.sms.SmsResponse;
+import com.example.workflow.service.SmsService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
+
+@RestController
+@RequestMapping("/api/sms")
+public class SmsController {
+    
+    @Autowired
+    private SmsService smsService;
+    
+    @PostMapping("/send")
+    public ResponseEntity<SmsResponse> sendSms(@Valid @RequestBody SmsRequest smsRequest) {
+        SmsResponse response = smsService.sendSms(smsRequest);
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/test")
+    public ResponseEntity<SmsResponse> testSms(
+            @RequestParam String mobileNo, 
+            @RequestParam String message) {
+        SmsResponse response = smsService.sendSms(mobileNo, message);
+        return ResponseEntity.ok(response);
+    }
+}
+```
+
+## 9. Error Handling and Logging
+
+Consider adding proper error handling and logging:
+
+```java
+package com.example.workflow.config;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.client.ClientHttpRequestExecution;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+
+@Component
+public class LoggingInterceptor implements ClientHttpRequestInterceptor {
+
+    private static final Logger logger = LoggerFactory.getLogger(LoggingInterceptor.class);
+    
+    @Override
+    public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) 
+            throws IOException {
+        
+        logger.info("SMS API Request: {} {}", request.getMethod(), request.getURI());
+        logger.info("SMS API Headers: {}", request.getHeaders());
+        logger.info("SMS API Request Body: {}", new String(body));
+        
+        ClientHttpResponse response = execution.execute(request, body);
+        
+        logger.info("SMS API Response Status: {}", response.getStatusCode());
+        logger.info("SMS API Response Headers: {}", response.getHeaders());
+        
+        return response;
+    }
+}
+```
+
+Then configure it in your RestTemplate:
+
+```java
+@Configuration
+public class RestTemplateConfig {
+    
+    @Bean
+    public RestTemplate restTemplate(LoggingInterceptor loggingInterceptor) {
+        RestTemplate restTemplate = new RestTemplate();
+        restTemplate.getInterceptors().add(loggingInterceptor);
+        return restTemplate;
+    }
+}
+```
+
+This implementation provides:
+
+1. Complete integration with Indian Bank's Domestic Transactional SMS API
+2. Proper request/response handling as per the API specification
+3. Integration with your existing workflow service
+4. Error handling and logging
+5. SMS notifications for all workflow events (submission, approval, rejection, withdrawal)
+6. Proper header generation as per bank requirements
+
+Make sure to set the appropriate environment variables for the sensitive configuration values.
