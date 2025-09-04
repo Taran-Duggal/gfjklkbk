@@ -1,0 +1,718 @@
+# SMS Service Implementation for Indian Bank Domestic Transactional SMS
+
+I'll create a complete SMS service implementation based on the Indian Bank API specification document. This will include proper request/response handling, header generation, and error management.
+
+## 1. Dependencies (pom.xml)
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.microsoft.sqlserver</groupId>
+        <artifactId>mssql-jdbc</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+</dependencies>
+```
+
+## 2. Configuration (application.properties)
+
+```properties
+# SMS Service Configuration
+sms.api.uat.endpoint=https://test-intgateway.ib.in/uat-indian-bankapi/enterprise/sms/v1/push-dm-sms
+sms.api.client-id=${SMS_CLIENT_ID}
+sms.api.client-secret=${SMS_CLIENT_SECRET}
+sms.api.channel=${SMS_CHANNEL}
+sms.api.sender-id=${SMS_SENDER_ID}
+sms.api.health-check=false
+sms.api.health-type=ALL
+
+# Database Configuration
+spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=sms_db;encrypt=true;trustServerCertificate=true
+spring.datasource.username=your_username
+spring.datasource.password=your_password
+spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
+```
+
+## 3. Entity Classes
+
+```java
+package com.example.sms.entity;
+
+import javax.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "sms_logs")
+public class SmsLog {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(nullable = false, length = 10)
+    private String mobileNo;
+    
+    @Column(nullable = false, length = 2)
+    private String countryCode;
+    
+    @Column(columnDefinition = "TEXT")
+    private String message;
+    
+    @Column(nullable = false)
+    private String status;
+    
+    @Column(name = "ack_id")
+    private String ackId;
+    
+    @Column(name = "interaction_id", length = 26)
+    private String interactionId;
+    
+    @Column(name = "error_code")
+    private String errorCode;
+    
+    @Column(name = "error_message")
+    private String errorMessage;
+    
+    @Column(name = "sent_at")
+    private LocalDateTime sentAt;
+    
+    @Column(name = "template_id")
+    private Integer templateId;
+    
+    @Column(name = "sms_type", length = 10)
+    private String smsType;
+    
+    // Constructors
+    public SmsLog() {
+        this.sentAt = LocalDateTime.now();
+    }
+    
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    
+    public String getMobileNo() { return mobileNo; }
+    public void setMobileNo(String mobileNo) { this.mobileNo = mobileNo; }
+    
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
+    
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    
+    public String getAckId() { return ackId; }
+    public void setAckId(String ackId) { this.ackId = ackId; }
+    
+    public String getInteractionId() { return interactionId; }
+    public void setInteractionId(String interactionId) { this.interactionId = interactionId; }
+    
+    public String getErrorCode() { return errorCode; }
+    public void setErrorCode(String errorCode) { this.errorCode = errorCode; }
+    
+    public String getErrorMessage() { return errorMessage; }
+    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    
+    public LocalDateTime getSentAt() { return sentAt; }
+    public void setSentAt(LocalDateTime sentAt) { this.sentAt = sentAt; }
+    
+    public Integer getTemplateId() { return templateId; }
+    public void setTemplateId(Integer templateId) { this.templateId = templateId; }
+    
+    public String getSmsType() { return smsType; }
+    public void setSmsType(String smsType) { this.smsType = smsType; }
+}
+```
+
+## 4. Repository Interface
+
+```java
+package com.example.sms.repository;
+
+import com.example.sms.entity.SmsLog;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface SmsLogRepository extends JpaRepository<SmsLog, Long> {
+}
+```
+
+## 5. Request/Response DTOs
+
+```java
+package com.example.sms.dto;
+
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
+
+public class SmsRequest {
+    
+    @NotBlank(message = "Mobile number is required")
+    @Pattern(regexp = "\\d{10}", message = "Mobile number must be 10 digits")
+    private String mobileNo;
+    
+    @NotBlank(message = "Message is required")
+    @Size(max = 1000, message = "Message too long")
+    private String message;
+    
+    @NotBlank(message = "Country code is required")
+    @Pattern(regexp = "91", message = "Country code must be 91")
+    private String countryCode = "91";
+    
+    private Integer templateId;
+    private String smsType;
+    
+    // Constructors
+    public SmsRequest() {}
+    
+    public SmsRequest(String mobileNo, String message) {
+        this.mobileNo = mobileNo;
+        this.message = message;
+        this.countryCode = "91";
+    }
+    
+    // Getters and Setters
+    public String getMobileNo() { return mobileNo; }
+    public void setMobileNo(String mobileNo) { this.mobileNo = mobileNo; }
+    
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
+    
+    public Integer getTemplateId() { return templateId; }
+    public void setTemplateId(Integer templateId) { this.templateId = templateId; }
+    
+    public String getSmsType() { return smsType; }
+    public void setSmsType(String smsType) { this.smsType = smsType; }
+}
+```
+
+```java
+package com.example.sms.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class SmsResponse {
+    
+    @JsonProperty("smsResult")
+    private SmsResult smsResult;
+    
+    @JsonProperty("ErrorResponse")
+    private ErrorResponse errorResponse;
+    
+    // Getters and Setters
+    public SmsResult getSmsResult() { return smsResult; }
+    public void setSmsResult(SmsResult smsResult) { this.smsResult = smsResult; }
+    
+    public ErrorResponse getErrorResponse() { return errorResponse; }
+    public void setErrorResponse(ErrorResponse errorResponse) { this.errorResponse = errorResponse; }
+    
+    public boolean isSuccess() {
+        return smsResult != null && smsResult.getBody() != null && 
+               "SUCCESS".equalsIgnoreCase(smsResult.getBody().getStatus());
+    }
+    
+    public static class SmsResult {
+        private Metadata metadata;
+        private Body body;
+        
+        // Getters and Setters
+        public Metadata getMetadata() { return metadata; }
+        public void setMetadata(Metadata metadata) { this.metadata = metadata; }
+        
+        public Body getBody() { return body; }
+        public void setBody(Body body) { this.body = body; }
+    }
+    
+    public static class Metadata {
+        private Status status;
+        
+        // Getters and Setters
+        public Status getStatus() { return status; }
+        public void setStatus(Status status) { this.status = status; }
+    }
+    
+    public static class Status {
+        private String code;
+        private String desc;
+        
+        // Getters and Setters
+        public String getCode() { return code; }
+        public void setCode(String code) { this.code = code; }
+        
+        public String getDesc() { return desc; }
+        public void setDesc(String desc) { this.desc = desc; }
+    }
+    
+    public static class Body {
+        private String message;
+        private String status;
+        private String ackId;
+        
+        // Getters and Setters
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        
+        public String getAckId() { return ackId; }
+        public void setAckId(String ackId) { this.ackId = ackId; }
+    }
+    
+    public static class ErrorResponse {
+        private Metadata metadata;
+        private AdditionalInfo additionalInfo;
+        
+        // Getters and Setters
+        public Metadata getMetadata() { return metadata; }
+        public void setMetadata(Metadata metadata) { this.metadata = metadata; }
+        
+        public AdditionalInfo getAdditionalInfo() { return additionalInfo; }
+        public void setAdditionalInfo(AdditionalInfo additionalInfo) { this.additionalInfo = additionalInfo; }
+    }
+    
+    public static class AdditionalInfo {
+        private String excepCode;
+        private String excepText;
+        private String excepMetaData;
+        
+        // Getters and Setters
+        public String getExcepCode() { return excepCode; }
+        public void setExcepCode(String excepCode) { this.excepCode = excepCode; }
+        
+        public String getExcepText() { return excepText; }
+        public void setExcepText(String excepText) { this.excepText = excepText; }
+        
+        public String getExcepMetaData() { return excepMetaData; }
+        public void setExcepMetaData(String excepMetaData) { this.excepMetaData = excepMetaData; }
+    }
+}
+```
+
+## 6. SMS Service Interface
+
+```java
+package com.example.sms.service;
+
+import com.example.sms.dto.SmsRequest;
+import com.example.sms.dto.SmsResponse;
+
+public interface SmsService {
+    SmsResponse sendSms(SmsRequest smsRequest);
+    SmsResponse sendSms(String mobileNo, String message);
+    String generateInteractionId();
+}
+```
+
+## 7. SMS Service Implementation
+
+```java
+package com.example.sms.service;
+
+import com.example.sms.dto.SmsRequest;
+import com.example.sms.dto.SmsResponse;
+import com.example.sms.entity.SmsLog;
+import com.example.sms.repository.SmsLogRepository;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicLong;
+
+@Service
+public class SmsServiceImpl implements SmsService {
+
+    @Value("${sms.api.uat.endpoint}")
+    private String smsEndpoint;
+    
+    @Value("${sms.api.client-id}")
+    private String clientId;
+    
+    @Value("${sms.api.client-secret}")
+    private String clientSecret;
+    
+    @Value("${sms.api.channel}")
+    private String channel;
+    
+    @Value("${sms.api.sender-id}")
+    private String senderId;
+    
+    @Value("${sms.api.health-check}")
+    private String healthCheck;
+    
+    @Value("${sms.api.health-type}")
+    private String healthType;
+    
+    private final RestTemplate restTemplate;
+    private final SmsLogRepository smsLogRepository;
+    private final AtomicLong sequenceCounter = new AtomicLong(1);
+    
+    public SmsServiceImpl(RestTemplate restTemplate, SmsLogRepository smsLogRepository) {
+        this.restTemplate = restTemplate;
+        this.smsLogRepository = smsLogRepository;
+    }
+    
+    @Override
+    public SmsResponse sendSms(SmsRequest smsRequest) {
+        String interactionId = generateInteractionId();
+        SmsLog smsLog = createSmsLog(smsRequest, interactionId);
+        
+        try {
+            // Prepare the request payload
+            String requestPayload = createSmsRequestPayload(smsRequest);
+            
+            // Prepare headers
+            HttpHeaders headers = createHeaders(interactionId);
+            
+            // Create HTTP entity
+            HttpEntity<String> entity = new HttpEntity<>(requestPayload, headers);
+            
+            // Make API call
+            ResponseEntity<SmsResponse> response = restTemplate.exchange(
+                smsEndpoint, 
+                HttpMethod.POST, 
+                entity, 
+                SmsResponse.class
+            );
+            
+            SmsResponse smsResponse = response.getBody();
+            
+            // Update SMS log with response
+            if (smsResponse != null && smsResponse.isSuccess()) {
+                smsLog.setStatus("SUCCESS");
+                smsLog.setAckId(smsResponse.getSmsResult().getBody().getAckId());
+            } else if (smsResponse != null && smsResponse.getErrorResponse() != null) {
+                smsLog.setStatus("FAILED");
+                smsLog.setErrorCode(smsResponse.getErrorResponse().getAdditionalInfo().getExcepCode());
+                smsLog.setErrorMessage(smsResponse.getErrorResponse().getAdditionalInfo().getExcepText());
+            }
+            
+            smsLogRepository.save(smsLog);
+            return smsResponse;
+            
+        } catch (Exception e) {
+            // Handle exception and update SMS log
+            smsLog.setStatus("FAILED");
+            smsLog.setErrorCode("SMS-500");
+            smsLog.setErrorMessage("Failed to send SMS: " + e.getMessage());
+            smsLogRepository.save(smsLog);
+            
+            // Create error response
+            return createErrorResponse("500", "Internal Server Error", "SMS-500", 
+                                     "Failed to send SMS", e.getMessage());
+        }
+    }
+    
+    @Override
+    public SmsResponse sendSms(String mobileNo, String message) {
+        SmsRequest smsRequest = new SmsRequest(mobileNo, message);
+        return sendSms(smsRequest);
+    }
+    
+    @Override
+    public String generateInteractionId() {
+        // Generate 26-digit alpha-numeric ID as per bank specification
+        // Format: {channel} + 13-digit milliseconds + 9-digit sequence
+        
+        String channelPrefix = channel.length() >= 4 ? channel.substring(0, 4) : 
+                              String.format("%-4s", channel).replace(' ', '0');
+        
+        long milliseconds = System.currentTimeMillis();
+        String millisStr = String.format("%013d", milliseconds);
+        
+        long sequence = sequenceCounter.getAndIncrement() % 1000000000L;
+        String sequenceStr = String.format("%09d", sequence);
+        
+        return channelPrefix + millisStr + sequenceStr;
+    }
+    
+    private SmsLog createSmsLog(SmsRequest smsRequest, String interactionId) {
+        SmsLog smsLog = new SmsLog();
+        smsLog.setMobileNo(smsRequest.getMobileNo());
+        smsLog.setCountryCode(smsRequest.getCountryCode());
+        smsLog.setMessage(smsRequest.getMessage());
+        smsLog.setInteractionId(interactionId);
+        smsLog.setTemplateId(smsRequest.getTemplateId());
+        smsLog.setSmsType(smsRequest.getSmsType());
+        smsLog.setStatus("PENDING");
+        smsLog.setSentAt(LocalDateTime.now());
+        
+        return smsLogRepository.save(smsLog);
+    }
+    
+    private HttpHeaders createHeaders(String interactionId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-IB-Client-Id", clientId);
+        headers.set("X-IB-Client-Secret", clientSecret);
+        headers.set("Channel", channel);
+        headers.set("Content-Type", "application/json");
+        headers.set("X-API-Interaction-ID", interactionId);
+        headers.set("HealthCheck", healthCheck);
+        headers.set("HealthType", healthType);
+        headers.set("SenderId", senderId);
+        
+        // Add optional headers if provided
+        // headers.set("X-Client-Certificate", clientCertificate);
+        // headers.set("TemplateId", String.valueOf(templateId));
+        // headers.set("Smstype", smsType);
+        
+        return headers;
+    }
+    
+    private String createSmsRequestPayload(SmsRequest smsRequest) {
+        return String.format(
+            "{\"sms\": {\"Body\": {\"Payload\": {\"mobileNo\": \"%s\", \"message\": \"%s\", \"countryCode\": \"%s\"}}}}",
+            smsRequest.getMobileNo(),
+            escapeJsonString(smsRequest.getMessage()),
+            smsRequest.getCountryCode()
+        );
+    }
+    
+    private String escapeJsonString(String input) {
+        return input.replace("\\", "\\\\")
+                   .replace("\"", "\\\"")
+                   .replace("\b", "\\b")
+                   .replace("\f", "\\f")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
+    }
+    
+    private SmsResponse createErrorResponse(String code, String desc, String excepCode, 
+                                          String excepText, String excepMetaData) {
+        SmsResponse errorResponse = new SmsResponse();
+        SmsResponse.ErrorResponse error = new SmsResponse.ErrorResponse();
+        SmsResponse.Metadata metadata = new SmsResponse.Metadata();
+        SmsResponse.Status status = new SmsResponse.Status();
+        SmsResponse.AdditionalInfo additionalInfo = new SmsResponse.AdditionalInfo();
+        
+        status.setCode(code);
+        status.setDesc(desc);
+        metadata.setStatus(status);
+        
+        additionalInfo.setExcepCode(excepCode);
+        additionalInfo.setExcepText(excepText);
+        additionalInfo.setExcepMetaData(excepMetaData);
+        
+        error.setMetadata(metadata);
+        error.setAdditionalInfo(additionalInfo);
+        
+        errorResponse.setErrorResponse(error);
+        
+        return errorResponse;
+    }
+}
+```
+
+## 8. RestTemplate Configuration
+
+```java
+package com.example.sms.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+@Configuration
+public class RestTemplateConfig {
+    
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+}
+```
+
+## 9. SMS Controller
+
+```java
+package com.example.sms.controller;
+
+import com.example.sms.dto.SmsRequest;
+import com.example.sms.dto.SmsResponse;
+import com.example.sms.service.SmsService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
+
+@RestController
+@RequestMapping("/api/sms")
+public class SmsController {
+    
+    @Autowired
+    private SmsService smsService;
+    
+    @PostMapping("/send")
+    public ResponseEntity<SmsResponse> sendSms(@Valid @RequestBody SmsRequest smsRequest) {
+        SmsResponse response = smsService.sendSms(smsRequest);
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/test")
+    public ResponseEntity<SmsResponse> testSms(
+            @RequestParam String mobileNo, 
+            @RequestParam String message) {
+        SmsResponse response = smsService.sendSms(mobileNo, message);
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/interaction-id")
+    public ResponseEntity<String> generateInteractionId() {
+        String interactionId = smsService.generateInteractionId();
+        return ResponseEntity.ok(interactionId);
+    }
+}
+```
+
+## 10. Global Exception Handler
+
+```java
+package com.example.sms.exception;
+
+import com.example.sms.dto.SmsResponse;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.stream.Collectors;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<SmsResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        String errorMessage = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        
+        SmsResponse errorResponse = new SmsResponse();
+        SmsResponse.ErrorResponse error = new SmsResponse.ErrorResponse();
+        SmsResponse.Metadata metadata = new SmsResponse.Metadata();
+        SmsResponse.Status status = new SmsResponse.Status();
+        SmsResponse.AdditionalInfo additionalInfo = new SmsResponse.AdditionalInfo();
+        
+        status.setCode("400");
+        status.setDesc("Bad Request");
+        metadata.setStatus(status);
+        
+        additionalInfo.setExcepCode("VALIDATION-400");
+        additionalInfo.setExcepText("Validation failed");
+        additionalInfo.setExcepMetaData(errorMessage);
+        
+        error.setMetadata(metadata);
+        error.setAdditionalInfo(additionalInfo);
+        
+        errorResponse.setErrorResponse(error);
+        
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+    
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<SmsResponse> handleGenericException(Exception ex) {
+        SmsResponse errorResponse = new SmsResponse();
+        SmsResponse.ErrorResponse error = new SmsResponse.ErrorResponse();
+        SmsResponse.Metadata metadata = new SmsResponse.Metadata();
+        SmsResponse.Status status = new SmsResponse.Status();
+        SmsResponse.AdditionalInfo additionalInfo = new SmsResponse.AdditionalInfo();
+        
+        status.setCode("500");
+        status.setDesc("Internal Server Error");
+        metadata.setStatus(status);
+        
+        additionalInfo.setExcepCode("INTERNAL-500");
+        additionalInfo.setExcepText("Internal server error occurred");
+        additionalInfo.setExcepMetaData(ex.getMessage());
+        
+        error.setMetadata(metadata);
+        error.setAdditionalInfo(additionalInfo);
+        
+        errorResponse.setErrorResponse(error);
+        
+        return ResponseEntity.internalServerError().body(errorResponse);
+    }
+}
+```
+
+## 11. Main Application Class
+
+```java
+package com.example.sms;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class SmsServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(SmsServiceApplication.class, args);
+    }
+}
+```
+
+## 12. Usage Examples
+
+### Send SMS via POST request:
+```bash
+curl -X POST http://localhost:8080/api/sms/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mobileNo": "9715200000",
+    "message": "Dear user, your script has been approved. -Indianbank",
+    "countryCode": "91",
+    "templateId": 12345,
+    "smsType": "Transactional"
+  }'
+```
+
+### Send SMS via GET request:
+```bash
+curl "http://localhost:8080/api/sms/test?mobileNo=9715200000&message=Test%20message"
+```
+
+### Generate Interaction ID:
+```bash
+curl http://localhost:8080/api/sms/interaction-id
+```
+
+This implementation provides:
+
+1. **Complete compliance** with Indian Bank's API specification
+2. **Proper header generation** including the 26-digit interaction ID
+3. **Database logging** of all SMS attempts with status tracking
+4. **Error handling** and proper response formatting
+5. **Input validation** for mobile numbers and other parameters
+6. **RESTful API endpoints** for sending SMS and testing
+7. **MS SQL Server integration** for persistence
+8. **Thread-safe sequence generation** for interaction IDs
+
+The service will automatically log all SMS attempts to the database, track their status, and handle errors according to the bank's API specification.
