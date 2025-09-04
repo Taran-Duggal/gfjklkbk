@@ -1,0 +1,651 @@
+# SMS Service Integration for Script Approval Workflow
+
+I'll create a complete SMS service that integrates with your existing script approval workflow. This will send SMS notifications when scripts are sent for approval.
+
+## 1. SMS Service Implementation
+
+```java
+package com.example.workflow.service;
+
+import com.example.workflow.dto.SmsRequest;
+import com.example.workflow.dto.SmsResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.concurrent.atomic.AtomicLong;
+
+@Service
+public class SmsService {
+
+    @Value("${sms.api.endpoint:https://test-intgateway.ib.in/uat-indian-bankapi/enterprise/sms/v1/push-dm-sms}")
+    private String smsEndpoint;
+    
+    @Value("${sms.api.client-id}")
+    private String clientId;
+    
+    @Value("${sms.api.client-secret}")
+    private String clientSecret;
+    
+    @Value("${sms.api.channel}")
+    private String channel;
+    
+    @Value("${sms.api.sender-id}")
+    private String senderId;
+    
+    @Value("${sms.api.health-check:false}")
+    private String healthCheck;
+    
+    @Value("${sms.api.health-type:ALL}")
+    private String healthType;
+    
+    private final RestTemplate restTemplate;
+    private final AtomicLong sequenceCounter = new AtomicLong(1);
+    
+    public SmsService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+    
+    /**
+     * Send SMS using the Indian Bank API
+     */
+    public SmsResponse sendSms(String mobileNo, String message) {
+        SmsRequest smsRequest = new SmsRequest();
+        smsRequest.setMobileNo(mobileNo);
+        smsRequest.setMessage(message);
+        smsRequest.setCountryCode("91");
+        
+        return sendSms(smsRequest);
+    }
+    
+    /**
+     * Send SMS with full request object
+     */
+    public SmsResponse sendSms(SmsRequest smsRequest) {
+        String interactionId = generateInteractionId();
+        
+        try {
+            // Prepare the request payload
+            String requestPayload = createSmsRequestPayload(smsRequest);
+            
+            // Prepare headers
+            HttpHeaders headers = createHeaders(interactionId);
+            
+            // Create HTTP entity
+            HttpEntity<String> entity = new HttpEntity<>(requestPayload, headers);
+            
+            // Make API call
+            ResponseEntity<SmsResponse> response = restTemplate.exchange(
+                smsEndpoint, 
+                HttpMethod.POST, 
+                entity, 
+                SmsResponse.class
+            );
+            
+            return response.getBody();
+            
+        } catch (Exception e) {
+            // Handle exception and create error response
+            return createErrorResponse("500", "Internal Server Error", "SMS-500", 
+                                     "Failed to send SMS", e.getMessage());
+        }
+    }
+    
+    /**
+     * Generate 26-digit interaction ID as per bank specification
+     */
+    public String generateInteractionId() {
+        // Format: {channel} + 13-digit milliseconds + 9-digit sequence
+        String channelPrefix = channel.length() >= 4 ? channel.substring(0, 4) : 
+                              String.format("%-4s", channel).replace(' ', '0');
+        
+        long milliseconds = System.currentTimeMillis();
+        String millisStr = String.format("%013d", milliseconds);
+        
+        long sequence = sequenceCounter.getAndIncrement() % 1000000000L;
+        String sequenceStr = String.format("%09d", sequence);
+        
+        return channelPrefix + millisStr + sequenceStr;
+    }
+    
+    private HttpHeaders createHeaders(String interactionId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-IB-Client-Id", clientId);
+        headers.set("X-IB-Client-Secret", clientSecret);
+        headers.set("Channel", channel);
+        headers.set("Content-Type", "application/json");
+        headers.set("X-API-Interaction-ID", interactionId);
+        headers.set("HealthCheck", healthCheck);
+        headers.set("HealthType", healthType);
+        headers.set("SenderId", senderId);
+        
+        return headers;
+    }
+    
+    private String createSmsRequestPayload(SmsRequest smsRequest) {
+        return String.format(
+            "{\"sms\": {\"Body\": {\"Payload\": {\"mobileNo\": \"%s\", \"message\": \"%s\", \"countryCode\": \"%s\"}}}}",
+            smsRequest.getMobileNo(),
+            escapeJsonString(smsRequest.getMessage()),
+            smsRequest.getCountryCode()
+        );
+    }
+    
+    private String escapeJsonString(String input) {
+        return input.replace("\\", "\\\\")
+                   .replace("\"", "\\\"")
+                   .replace("\b", "\\b")
+                   .replace("\f", "\\f")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
+    }
+    
+    private SmsResponse createErrorResponse(String code, String desc, String excepCode, 
+                                          String excepText, String excepMetaData) {
+        SmsResponse errorResponse = new SmsResponse();
+        SmsResponse.ErrorResponse error = new SmsResponse.ErrorResponse();
+        SmsResponse.Metadata metadata = new SmsResponse.Metadata();
+        SmsResponse.Status status = new SmsResponse.Status();
+        SmsResponse.AdditionalInfo additionalInfo = new SmsResponse.AdditionalInfo();
+        
+        status.setCode(code);
+        status.setDesc(desc);
+        metadata.setStatus(status);
+        
+        additionalInfo.setExcepCode(excepCode);
+        additionalInfo.setExcepText(excepText);
+        additionalInfo.setExcepMetaData(excepMetaData);
+        
+        error.setMetadata(metadata);
+        error.setAdditionalInfo(additionalInfo);
+        
+        errorResponse.setErrorResponse(error);
+        
+        return errorResponse;
+    }
+    
+    /**
+     * Send approval notification SMS to reviewer
+     */
+    public void sendApprovalNotification(String reviewerMobile, String scriptName, String makerName) {
+        String message = String.format(
+            "Dear Reviewer, a new script '%s' has been submitted by %s for your approval. Please review it at your earliest convenience. -Indianbank",
+            scriptName, makerName
+        );
+        
+        SmsResponse response = sendSms(reviewerMobile, message);
+        
+        if (!response.isSuccess()) {
+            // Log the error but don't throw exception to avoid blocking the main workflow
+            System.err.println("Failed to send SMS notification: " + 
+                response.getErrorResponse().getAdditionalInfo().getExcepText());
+        }
+    }
+    
+    /**
+     * Send approval status update SMS to maker
+     */
+    public void sendApprovalStatusUpdate(String makerMobile, String scriptName, String status, String reviewerName) {
+        String message = String.format(
+            "Dear User, your script '%s' has been %s by %s. -Indianbank",
+            scriptName, status, reviewerName
+        );
+        
+        SmsResponse response = sendSms(makerMobile, message);
+        
+        if (!response.isSuccess()) {
+            // Log the error but don't throw exception
+            System.err.println("Failed to send SMS status update: " + 
+                response.getErrorResponse().getAdditionalInfo().getExcepText());
+        }
+    }
+}
+```
+
+## 2. SMS DTO Classes
+
+```java
+package com.example.workflow.dto;
+
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
+
+public class SmsRequest {
+    
+    @NotBlank(message = "Mobile number is required")
+    @Pattern(regexp = "\\d{10}", message = "Mobile number must be 10 digits")
+    private String mobileNo;
+    
+    @NotBlank(message = "Message is required")
+    @Size(max = 1000, message = "Message too long")
+    private String message;
+    
+    @NotBlank(message = "Country code is required")
+    @Pattern(regexp = "91", message = "Country code must be 91")
+    private String countryCode = "91";
+    
+    private Integer templateId;
+    private String smsType;
+    
+    // Constructors
+    public SmsRequest() {}
+    
+    public SmsRequest(String mobileNo, String message) {
+        this.mobileNo = mobileNo;
+        this.message = message;
+        this.countryCode = "91";
+    }
+    
+    // Getters and Setters
+    public String getMobileNo() { return mobileNo; }
+    public void setMobileNo(String mobileNo) { this.mobileNo = mobileNo; }
+    
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
+    
+    public Integer getTemplateId() { return templateId; }
+    public void setTemplateId(Integer templateId) { this.templateId = templateId; }
+    
+    public String getSmsType() { return smsType; }
+    public void setSmsType(String smsType) { this.smsType = smsType; }
+}
+```
+
+```java
+package com.example.workflow.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class SmsResponse {
+    
+    @JsonProperty("smsResult")
+    private SmsResult smsResult;
+    
+    @JsonProperty("ErrorResponse")
+    private ErrorResponse errorResponse;
+    
+    // Getters and Setters
+    public SmsResult getSmsResult() { return smsResult; }
+    public void setSmsResult(SmsResult smsResult) { this.smsResult = smsResult; }
+    
+    public ErrorResponse getErrorResponse() { return errorResponse; }
+    public void setErrorResponse(ErrorResponse errorResponse) { this.errorResponse = errorResponse; }
+    
+    public boolean isSuccess() {
+        return smsResult != null && smsResult.getBody() != null && 
+               "SUCCESS".equalsIgnoreCase(smsResult.getBody().getStatus());
+    }
+    
+    public static class SmsResult {
+        private Metadata metadata;
+        private Body body;
+        
+        // Getters and Setters
+        public Metadata getMetadata() { return metadata; }
+        public void setMetadata(Metadata metadata) { this.metadata = metadata; }
+        
+        public Body getBody() { return body; }
+        public void setBody(Body body) { this.body = body; }
+    }
+    
+    public static class Metadata {
+        private Status status;
+        
+        // Getters and Setters
+        public Status getStatus() { return status; }
+        public void setStatus(Status status) { this.status = status; }
+    }
+    
+    public static class Status {
+        private String code;
+        private String desc;
+        
+        // Getters and Setters
+        public String getCode() { return code; }
+        public void setCode(String code) { this.code = code; }
+        
+        public String getDesc() { return desc; }
+        public void setDesc(String desc) { this.desc = desc; }
+    }
+    
+    public static class Body {
+        private String message;
+        private String status;
+        private String ackId;
+        
+        // Getters and Setters
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        
+        public String getAckId() { return ackId; }
+        public void setAckId(String ackId) { this.ackId = ackId; }
+    }
+    
+    public static class ErrorResponse {
+        private Metadata metadata;
+        private AdditionalInfo additionalInfo;
+        
+        // Getters and Setters
+        public Metadata getMetadata() { return metadata; }
+        public void setMetadata(Metadata metadata) { this.metadata = metadata; }
+        
+        public AdditionalInfo getAdditionalInfo() { return additionalInfo; }
+        public void setAdditionalInfo(AdditionalInfo additionalInfo) { this.additionalInfo = additionalInfo; }
+    }
+    
+    public static class AdditionalInfo {
+        private String excepCode;
+        private String excepText;
+        private String excepMetaData;
+        
+        // Getters and Setters
+        public String getExcepCode() { return excepCode; }
+        public void setExcepCode(String excepCode) { this.excepCode = excepCode; }
+        
+        public String getExcepText() { return excepText; }
+        public void setExcepText(String excepText) { this.excepText = excepText; }
+        
+        public String getExcepMetaData() { return excepMetaData; }
+        public void setExcepMetaData(String excepMetaData) { this.excepMetaData = excepMetaData; }
+    }
+}
+```
+
+## 3. RestTemplate Configuration
+
+```java
+package com.example.workflow.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+@Configuration
+public class RestTemplateConfig {
+    
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+}
+```
+
+## 4. Application Properties
+
+Add these to your `application.properties`:
+
+```properties
+# SMS Service Configuration
+sms.api.endpoint=https://test-intgateway.ib.in/uat-indian-bankapi/enterprise/sms/v1/push-dm-sms
+sms.api.client-id=${SMS_CLIENT_ID:default_client_id}
+sms.api.client-secret=${SMS_CLIENT_SECRET:default_client_secret}
+sms.api.channel=${SMS_CHANNEL:default_channel}
+sms.api.sender-id=${SMS_SENDER_ID:default_sender}
+sms.api.health-check=false
+sms.api.health-type=ALL
+```
+
+## 5. Integration with Your Existing Service
+
+Now modify your existing service to integrate SMS notifications:
+
+```java
+package com.example.workflow.service;
+
+import com.example.workflow.dto.ScriptRequestDto;
+import com.example.workflow.entity.Script;
+import com.example.workflow.entity.User;
+import com.example.workflow.repository.ScriptRepository;
+import com.example.workflow.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.IOException;
+import java.time.LocalDateTime;
+
+@Service
+public class ScriptService {
+
+    @Autowired
+    private ScriptRepository scriptRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Autowired
+    private SecurityUtils securityUtils;
+    
+    @Autowired
+    private CategoryRepository categoryRepository;
+    
+    @Autowired
+    private SmsService smsService; // Inject the SMS service
+
+    @Override
+    @Transactional
+    public void sendForApproval(ScriptRequestDto requestDto) throws IOException {
+        // 1. Saving the script first
+        Script script = saveScriptForApproval(requestDto);
+
+        // 2. Generating PDF and creating history
+        createScriptHistoryForApproval(script, requestDto);
+        
+        // 3. Send SMS notification to reviewer
+        sendSmsNotification(script, requestDto);
+    }
+
+    private Script saveScriptForApproval(ScriptRequestDto requestDto) {
+        // Your existing implementation
+        String currentUserLogin = securityUtils.getCurrentUserLogin();
+        User currentUser = userRepository.findByLoginId(currentUserLogin)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        Script script = new Script();
+
+        // Setting basic fields
+        script.setScriptName(requestDto.getScriptName());
+        script.setOldScriptNumber(requestDto.getOldScriptNumber());
+        script.setSubDepartment(requestDto.getSubDepartment());
+        script.setLanguageId(requestDto.getLanguage() != null ?
+                Integer.valueOf(requestDto.getLanguage()) : null);
+        script.setObjective(requestDto.getObjective());
+        script.setVersionNo(1);
+        script.setScriptStatus(ScriptStatus.SENT_FOR_APPROVAL.getCode());
+        script.setDepartment(currentUser.getDepartment());
+
+        // Processing and setting keywords
+        String combinedKeywords = processKeywords(requestDto);
+        script.setKeywords(combinedKeywords);
+
+        // Setting category & subcategory
+        Category category = categoryRepository.findByKbCatName(requestDto.getCategoryName())
+                .orElseThrow(() -> new RuntimeException("Category not found"));
+        Category subcategory = categoryRepository.findByKbCatName(requestDto.getSubCategoryName())
+                .orElseThrow(() -> new RuntimeException("Subcategory not found"));
+
+        script.setCategory(category);
+        script.setSubcategory(subcategory);
+
+        // Setting content
+        setScriptContent(script, requestDto);
+
+        // Setting glossary terms
+        setGlossaryTerms(script, requestDto);
+
+        // Setting audit fields
+        script.setCreatedBy(currentUser.getUserId());
+        script.setCreatedOn(LocalDateTime.now());
+        script.setActiveYn("Y");
+
+        // Saving the script to generate an ID
+        Script savedScript = scriptRepository.save(script);
+
+        // Now we have the ID, generating and setting the script number
+        String scriptNumber = generateNewScriptNo(savedScript);
+        savedScript.setScriptNumber(scriptNumber);
+
+        // Saving again with the script number
+        savedScript = scriptRepository.save(savedScript);
+
+        // Saving FAQs
+        saveFaqs(savedScript, requestDto.getFaqs());
+
+        return savedScript;
+    }
+    
+    /**
+     * Send SMS notification to reviewer
+     */
+    private void sendSmsNotification(Script script, ScriptRequestDto requestDto) {
+        try {
+            // Get reviewer details (you might need to adjust this based on your user structure)
+            User reviewer = getUserByIdOrLogin(requestDto.getReviewerId());
+            
+            if (reviewer != null && reviewer.getMobileNumber() != null) {
+                User maker = userRepository.findById(script.getCreatedBy())
+                        .orElseThrow(() -> new RuntimeException("Maker not found"));
+                
+                // Send SMS notification
+                smsService.sendApprovalNotification(
+                    reviewer.getMobileNumber(),
+                    script.getScriptName(),
+                    maker.getFullName()
+                );
+                
+                System.out.println("SMS notification sent to reviewer: " + reviewer.getMobileNumber());
+            } else {
+                System.out.println("Reviewer mobile number not available, skipping SMS notification");
+            }
+        } catch (Exception e) {
+            // Log error but don't break the main workflow
+            System.err.println("Failed to send SMS notification: " + e.getMessage());
+        }
+    }
+    
+    private User getUserByIdOrLogin(String identifier) {
+        // Implement logic to get user by ID or login
+        // This is a placeholder - adjust based on your user repository methods
+        return userRepository.findByLoginId(identifier)
+                .orElseGet(() -> userRepository.findById(Long.valueOf(identifier))
+                .orElse(null));
+    }
+    
+    // Add similar methods for other approval status changes
+    public void approveScript(Long scriptId, Long reviewerId) {
+        // Your existing approval logic
+        
+        // Send SMS notification to maker
+        Script script = scriptRepository.findById(scriptId)
+                .orElseThrow(() -> new RuntimeException("Script not found"));
+        
+        User reviewer = userRepository.findById(reviewerId)
+                .orElseThrow(() -> new RuntimeException("Reviewer not found"));
+        
+        User maker = userRepository.findById(script.getCreatedBy())
+                .orElseThrow(() -> new RuntimeException("Maker not found"));
+        
+        if (maker.getMobileNumber() != null) {
+            smsService.sendApprovalStatusUpdate(
+                maker.getMobileNumber(),
+                script.getScriptName(),
+                "APPROVED",
+                reviewer.getFullName()
+            );
+        }
+    }
+    
+    public void rejectScript(Long scriptId, Long reviewerId, String reason) {
+        // Your existing rejection logic
+        
+        // Send SMS notification to maker
+        Script script = scriptRepository.findById(scriptId)
+                .orElseThrow(() -> new RuntimeException("Script not found"));
+        
+        User reviewer = userRepository.findById(reviewerId)
+                .orElseThrow(() -> new RuntimeException("Reviewer not found"));
+        
+        User maker = userRepository.findById(script.getCreatedBy())
+                .orElseThrow(() -> new RuntimeException("Maker not found"));
+        
+        if (maker.getMobileNumber() != null) {
+            String message = String.format(
+                "Dear User, your script '%s' has been REJECTED by %s. Reason: %s. -Indianbank",
+                script.getScriptName(), reviewer.getFullName(), reason
+            );
+            
+            smsService.sendSms(maker.getMobileNumber(), message);
+        }
+    }
+}
+```
+
+## 6. Add Mobile Number Field to User Entity
+
+Make sure your User entity has a mobile number field:
+
+```java
+package com.example.workflow.entity;
+
+import javax.persistence.*;
+
+@Entity
+@Table(name = "users")
+public class User {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long userId;
+    
+    private String loginId;
+    private String fullName;
+    private String email;
+    
+    @Column(name = "mobile_number", length = 10)
+    private String mobileNumber;
+    
+    // Other fields, constructors, getters, and setters
+    
+    public String getMobileNumber() { return mobileNumber; }
+    public void setMobileNumber(String mobileNumber) { this.mobileNumber = mobileNumber; }
+}
+```
+
+## 7. Usage
+
+The SMS service will now automatically send notifications:
+
+1. **When a script is sent for approval**: SMS is sent to the reviewer
+2. **When a script is approved/rejected**: SMS is sent to the maker
+
+The service handles errors gracefully and won't break your main workflow if SMS sending fails.
+
+## 8. Environment Variables
+
+Set these environment variables for production:
+
+```bash
+export SMS_CLIENT_ID=your_client_id
+export SMS_CLIENT_SECRET=your_client_secret
+export SMS_CHANNEL=your_channel
+export SMS_SENDER_ID=your_sender_id
+```
+
+This implementation provides:
+
+1. **Complete integration** with Indian Bank's SMS API
+2. **Proper error handling** that doesn't break your main workflow
+3. **Automatic notifications** for script approval workflow
+4. **Thread-safe** interaction ID generation
+5. **Easy configuration** through environment variables
+6. **Minimal changes** to your existing codebase
