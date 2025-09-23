@@ -1,0 +1,73 @@
+package com.demsIB.integration.bank.model;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.sql.Time;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Date;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Table(name = "ib_bank_report")
+public class Report {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "report_id")
+    private Long reportId;
+
+    @Column(name = "interaction_id")
+    private String interactionId;
+
+    @Column(name = "api_name")
+    private String apiName;
+
+    @Column(name = "created_on")
+    private LocalDateTime createdOn;
+
+    @Column(name = "created_by")
+    private String createdBy;
+
+    @Column(name = "api_status")
+    private String apiStatus;
+
+//    @Lob
+//    @Column(name = "api_response", columnDefinition = "NVARCHAR(MAX)")
+//    private String apiResponse;
+
+    @Column(name = "api_remark")
+    private String apiRemark;
+
+    @Column(name = "call_id")
+    private String callId;
+
+    @Column(name = "mobile_number_last_4_digit")
+    private String mobileNumberLast4Digit;
+
+    @Column(name = "date")
+    private LocalDate callIdDate;
+
+    @Column(name = "time")
+    private LocalTime callIdTime;
+
+    @Column(name="agent_id")
+    private String agentId;
+
+    @Column(name="sub_category")
+    private String subCategory;
+
+    @Column(name="product_category")
+    private String productCategory;
+
+    @Column(name = "resolution_code")
+    private String resolutionCode;
+}
+
+
