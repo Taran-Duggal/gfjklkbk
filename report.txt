@@ -71,3 +71,12 @@ public class Report {
 }
 
 
+interaction_id
+call_id
+agent_id
+product_category
+sub_category
+resolution_code
+date
+time
+mobile_number_last_4_digit
