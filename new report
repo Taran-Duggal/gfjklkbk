@@ -1,0 +1,212 @@
+@Data
+public class ReportExcelDTO {
+    private Map<String, Object> data = new HashMap<>();
+    
+    public void setValue(String column, Object value) {
+        data.put(column, value);
+    }
+    
+    public Object getValue(String column) {
+        return data.get(column);
+    }
+}
+
+
+
+@Service
+@RequiredArgsConstructor
+public class ReportService {
+    
+    private final JdbcTemplate jdbcTemplate;
+    private final ReportProperties reportProperties;
+    
+    public List<ReportExcelDTO> getReportsByDateRange(LocalDate startDate, LocalDate endDate) {
+        List<Map<String, Object>> results = jdbcTemplate.queryForList(
+            reportProperties.getQuery(), startDate, endDate);
+        
+        return results.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
+    
+    private ReportExcelDTO mapToDTO(Map<String, Object> row) {
+        ReportExcelDTO dto = new ReportExcelDTO();
+        List<String> columns = reportProperties.getColumnList();
+        
+        for (String column : columns) {
+            Object value = row.get(column);
+            dto.setValue(column, convertValue(value));
+        }
+        return dto;
+    }
+    
+    private Object convertValue(Object value) {
+        if (value == null) return "";
+        
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
+        }
+        if (value instanceof java.sql.Time) {
+            return ((java.sql.Time) value).toLocalTime();
+        }
+        if (value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value).toLocalDateTime();
+        }
+        
+        return value.toString();
+    }
+}
+
+
+
+@Service
+@RequiredArgsConstructor
+public class ExcelExportService {
+    
+    private final ReportProperties reportProperties;
+    
+    public Workbook generateExcelReport(List<ReportExcelDTO> reports, LocalDate startDate, LocalDate endDate) {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Bank Report");
+        
+        List<String> headers = reportProperties.getHeaderList();
+        List<String> columns = reportProperties.getColumnList();
+        
+        createTitle(workbook, sheet, startDate, endDate, headers.size());
+        createHeaders(workbook, sheet, headers);
+        createDataRows(workbook, sheet, reports, columns);
+        addSummary(workbook, sheet, reports.size(), headers.size());
+        autoSizeColumns(sheet, headers.size());
+        
+        return workbook;
+    }
+    
+    private void createTitle(Workbook workbook, Sheet sheet, LocalDate startDate, LocalDate endDate, int columnCount) {
+        Row titleRow = sheet.createRow(0);
+        Cell titleCell = titleRow.createCell(0);
+        titleCell.setCellValue("Bank Integration Report - " + startDate + " to " + endDate);
+        
+        CellStyle titleStyle = workbook.createCellStyle();
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 14);
+        titleStyle.setFont(titleFont);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+        titleCell.setCellStyle(titleStyle);
+        
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, columnCount - 1));
+    }
+    
+    private void createHeaders(Workbook workbook, Sheet sheet, List<String> headers) {
+        Row headerRow = sheet.createRow(2);
+        CellStyle headerStyle = createHeaderStyle(workbook);
+        
+        for (int i = 0; i < headers.size(); i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers.get(i));
+            cell.setCellStyle(headerStyle);
+        }
+    }
+    
+    private void createDataRows(Workbook workbook, Sheet sheet, List<ReportExcelDTO> reports, List<String> columns) {
+        int rowNum = 3;
+        CellStyle dataStyle = createDataStyle(workbook);
+        CellStyle dateStyle = createDateStyle(workbook);
+        CellStyle timeStyle = createTimeStyle(workbook);
+        
+        for (ReportExcelDTO report : reports) {
+            Row row = sheet.createRow(rowNum++);
+            
+            for (int i = 0; i < columns.size(); i++) {
+                String column = columns.get(i);
+                Object value = report.getValue(column);
+                Cell cell = row.createCell(i);
+                cell.setCellStyle(dataStyle);
+                
+                setCellValue(cell, value, dateStyle, timeStyle);
+            }
+        }
+    }
+    
+    private void setCellValue(Cell cell, Object value, CellStyle dateStyle, CellStyle timeStyle) {
+        if (value == null) {
+            cell.setCellValue("");
+        } else if (value instanceof LocalDate) {
+            cell.setCellValue(java.sql.Date.valueOf((LocalDate) value));
+            cell.setCellStyle(dateStyle);
+        } else if (value instanceof LocalTime) {
+            cell.setCellValue(value.toString());
+            cell.setCellStyle(timeStyle);
+        } else if (value instanceof LocalDateTime) {
+            cell.setCellValue(java.sql.Timestamp.valueOf((LocalDateTime) value));
+            cell.setCellStyle(dateStyle);
+        } else if (value instanceof Number) {
+            cell.setCellValue(((Number) value).doubleValue());
+        } else {
+            cell.setCellValue(value.toString());
+        }
+    }
+    
+    private void addSummary(Workbook workbook, Sheet sheet, int totalRecords, int columnCount) {
+        Row summaryRow = sheet.createRow(sheet.getLastRowNum() + 2);
+        Cell summaryCell = summaryRow.createCell(0);
+        summaryCell.setCellValue("Total Records: " + totalRecords + " | Generated on: " + LocalDateTime.now());
+        
+        CellStyle summaryStyle = workbook.createCellStyle();
+        Font summaryFont = workbook.createFont();
+        summaryFont.setBold(true);
+        summaryStyle.setFont(summaryFont);
+        summaryCell.setCellStyle(summaryStyle);
+        
+        sheet.addMergedRegion(new CellRangeAddress(summaryRow.getRowNum(), summaryRow.getRowNum(), 0, columnCount - 1));
+    }
+    
+    private void autoSizeColumns(Sheet sheet, int columnCount) {
+        for (int i = 0; i < columnCount; i++) {
+            sheet.autoSizeColumn(i);
+        }
+    }
+    
+    // Keep the existing style methods (createHeaderStyle, createDataStyle, etc.) the same
+    private CellStyle createHeaderStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.WHITE.getIndex());
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setBorderBottom(BorderStyle.THIN);
+        return style;
+    }
+    
+    private CellStyle createDataStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        return style;
+    }
+    
+    private CellStyle createDateStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat(workbook.createDataFormat().getFormat("yyyy-mm-dd"));
+        return style;
+    }
+    
+    private CellStyle createTimeStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat(workbook.createDataFormat().getFormat("hh:mm:ss"));
+        return style;
+    }
+}
+
+
+
+
+
+report:
+  query: |
+    SELECT interaction_id, call_id, agent_id, product_category, sub_category, 
+           resolution_code, date, time, mobile_number_last_4_digit, new_field
+    FROM ib_bank_report 
+    WHERE date BETWEEN ? AND ?
+  columns: "interaction_id,call_id,agent_id,product_category,sub_category,resolution_code,date,time,mobile_number_last_4_digit,new_field"
+  headers: "Interaction ID,Call ID,Agent ID,Product Category,Sub Category,Resolution Code,Date,Time,Mobile Last 4 Digits,New Field"
