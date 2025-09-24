@@ -502,3 +502,213 @@ disposition-dump:
     ORDER BY sd.created_on DESC
   columns: "login_id,created_on,call_id,Ticket_Type,Category,SubCategory,Product_Category,Resolution_code"
   headers: "Login ID,Created On,Call ID,Ticket Type,Category,SubCategory,Product Category,Resolution Code"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dependency>
+    <groupId>eu.agno3.jcifs</groupId>
+    <artifactId>jcifs-ng</artifactId>
+    <version>2.1.6</version>
+</dependency>
+
+
+
+import jcifs.context.BaseContext;
+import jcifs.context.CIFSContext;
+import jcifs.smb.NtlmPasswordAuthenticator;
+import jcifs.smb.SmbFile;
+import org.springframework.stereotype.Service;
+
+import java.io.File;
+
+@Service
+public class FileTransferService {
+
+    public void sendFileToRemote(String localFilePath, String remoteShareUrl, String username, String password) throws Exception {
+        // Authenticator
+        NtlmPasswordAuthenticator auth = new NtlmPasswordAuthenticator(username, password);
+        CIFSContext context = new BaseContext().withCredentials(auth);
+
+        // Create SMB file object
+        SmbFile remoteFile = new SmbFile(remoteShareUrl, context);
+
+        // Copy file
+        remoteFile.copyFrom(new File(localFilePath), true);
+
+        System.out.println("File successfully copied to remote server.");
+    }
+}
+
+
+
+
+sendFileToRemote(
+    "C:\\local\\reports\\report.xlsx",
+    "smb://10.68.1.13/SharedReports/report.xlsx",
+    "username", "password"
+);
+
+
+
+
+
+
+import org.apache.poi.ss.usermodel.Workbook;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+
+public void saveExcelToNetworkShare(Workbook workbook, String fileName) throws Exception {
+    String networkPath = "\\\\AZIBDCCRMDB01\\Reports\\" + fileName;
+
+    try (OutputStream out = new FileOutputStream(new File(networkPath))) {
+        workbook.write(out);
+    }
+
+    System.out.println("Excel file saved to network share: " + networkPath);
+}
+
+
+
+
+
+
+
+
+Workbook workbook = excelExportService.generateExcelReport(reports, startDate, endDate);
+
+saveExcelToNetworkShare(workbook, "bank_report_" + startDate + "_to_" + endDate + ".xlsx");
+workbook.close();
+
+
+
+
+import org.apache.poi.ss.usermodel.Workbook;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.time.LocalDate;
+
+@Service
+public class ReportSchedulerService {
+
+    private final ExcelReportService excelReportService;
+
+    public ReportSchedulerService(ExcelReportService excelReportService) {
+        this.excelReportService = excelReportService;
+    }
+
+    private void saveExcelToNetworkShare(Workbook workbook, String fileName) throws Exception {
+        String networkPath = "\\\\AZIBDCCRMDB01\\Reports\\" + fileName;
+
+        try (OutputStream out = new FileOutputStream(new File(networkPath))) {
+            workbook.write(out);
+        }
+        workbook.close();
+
+        System.out.println("✅ Excel saved to: " + networkPath);
+    }
+
+    // 🔹 Runs every day at 8:00 AM
+    @Scheduled(cron = "0 0 8 * * *")
+    public void generateMorningReport() throws Exception {
+        System.out.println("📌 Generating 8 AM report...");
+        Workbook workbook = excelReportService.generateExcelReport();
+        String fileName = "Report_8AM_" + LocalDate.now() + ".xlsx";
+        saveExcelToNetworkShare(workbook, fileName);
+    }
+
+    // 🔹 Runs every day at 9:00 AM
+    @Scheduled(cron = "0 0 9 * * *")
+    public void generateNineAmReport() throws Exception {
+        System.out.println("📌 Generating 9 AM report...");
+        Workbook workbook = excelReportService.generateExcelReport();
+        String fileName = "Report_9AM_" + LocalDate.now() + ".xlsx";
+        saveExcelToNetworkShare(workbook, fileName);
+    }
+}
+
+
+
+
+
+import org.apache.poi.ss.usermodel.Workbook;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+public class ReportSchedulerService {
+
+    private final ExcelReportService excelReportService;
+    private final DispositionDumpService dispositionDumpService; // to fetch data
+
+    public ReportSchedulerService(ExcelReportService excelReportService,
+                                  DispositionDumpService dispositionDumpService) {
+        this.excelReportService = excelReportService;
+        this.dispositionDumpService = dispositionDumpService;
+    }
+
+    private void saveExcelToNetworkShare(Workbook workbook, String fileName) throws Exception {
+        String networkPath = "\\\\AZIBDCCRMDB01\\Reports\\" + fileName;
+
+        try (OutputStream out = new FileOutputStream(new File(networkPath))) {
+            workbook.write(out);
+        }
+        workbook.close();
+
+        System.out.println("✅ Excel saved to: " + networkPath);
+    }
+
+    // 🔹 Every day at 8:00 AM
+    @Scheduled(cron = "0 0 8 * * *")
+    public void generateMorningReport() throws Exception {
+        LocalDateTime startDate = LocalDateTime.now().minusDays(1).withHour(0).withMinute(0);
+        LocalDateTime endDate = LocalDateTime.now().minusDays(1).withHour(23).withMinute(59);
+
+        List<DispositionDumpDTO> reports = dispositionDumpService.fetchReports(startDate, endDate);
+
+        Workbook workbook = excelReportService.generateExcelReport(reports, startDate, endDate);
+
+        String fileName = "DispositionDump_8AM_" + startDate.toLocalDate() + ".xlsx";
+        saveExcelToNetworkShare(workbook, fileName);
+    }
+
+    // 🔹 Every day at 9:00 AM
+    @Scheduled(cron = "0 0 9 * * *")
+    public void generateNineAmReport() throws Exception {
+        LocalDateTime startDate = LocalDateTime.now().minusDays(1).withHour(0).withMinute(0);
+        LocalDateTime endDate = LocalDateTime.now().minusDays(1).withHour(23).withMinute(59);
+
+        List<DispositionDumpDTO> reports = dispositionDumpService.fetchReports(startDate, endDate);
+
+        Workbook workbook = excelReportService.generateExcelReport(reports, startDate, endDate);
+
+        String fileName = "DispositionDump_9AM_" + startDate.toLocalDate() + ".xlsx";
+        saveExcelToNetworkShare(workbook, fileName);
+    }
+}
