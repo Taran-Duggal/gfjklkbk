@@ -877,3 +877,9 @@ public class ReportController {
         workbook.close();
     }
 }
+
+
+report.query=SELECT um.login_id, sd.created_on, sd.call_id, cm4.name AS Ticket_Type, cm3.name AS Category, cm2.name AS SubCategory, cm1.name AS Product_Category, sm.status_name AS Resolution_code FROM ib_service_details sd LEFT JOIN ib_category_master cm1 ON sd.category_id = cm1.category_id LEFT JOIN ib_category_master cm2 ON cm1.pid = cm2.category_id LEFT JOIN ib_category_master cm3 ON cm2.pid = cm3.category_id LEFT JOIN ib_category_master cm4 ON cm3.pid = cm4.category_id LEFT JOIN ib_status_master sm ON sd.status_id = sm.status_id LEFT JOIN ib_user_master um ON sd.created_by = um.user_id WHERE sd.call_id IS NOT NULL AND sd.call_id <> '' AND sd.created_on BETWEEN ? AND ? ORDER BY sd.created_on DESC
+report.columns=login_id,created_on,call_id,Ticket_Type,Category,SubCategory,Product_Category,Resolution_code
+report.headers=Login ID,Created On,Call ID,Ticket Type,Category,SubCategory,Product Category,Resolution Code
+
