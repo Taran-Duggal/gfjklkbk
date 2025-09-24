@@ -210,3 +210,295 @@ report:
     WHERE date BETWEEN ? AND ?
   columns: "interaction_id,call_id,agent_id,product_category,sub_category,resolution_code,date,time,mobile_number_last_4_digit,new_field"
   headers: "Interaction ID,Call ID,Agent ID,Product Category,Sub Category,Resolution Code,Date,Time,Mobile Last 4 Digits,New Field"
+
+
+
+@Component
+@ConfigurationProperties(prefix = "disposition-dump")
+@Data
+public class DispositionDumpProperties {
+    private String query;
+    private String columns;
+    private String headers;
+    
+    public List<String> getColumnList() {
+        return Arrays.asList(columns.split(","));
+    }
+    
+    public List<String> getHeaderList() {
+        return Arrays.asList(headers.split(","));
+    }
+}
+
+@Data
+public class DispositionDumpDTO {
+    private Map<String, Object> data = new HashMap<>();
+    
+    public void setValue(String column, Object value) {
+        data.put(column, value);
+    }
+    
+    public Object getValue(String column) {
+        return data.get(column);
+    }
+    
+    // Helper methods for common fields
+    public String getLoginId() {
+        return (String) data.get("login_id");
+    }
+    
+    public LocalDateTime getCreatedOn() {
+        return (LocalDateTime) data.get("created_on");
+    }
+    
+    public String getCallId() {
+        return (String) data.get("call_id");
+    }
+}
+
+
+@Service
+@RequiredArgsConstructor
+public class DispositionDumpService {
+    
+    private final JdbcTemplate jdbcTemplate;
+    private final DispositionDumpProperties dispositionDumpProperties;
+    
+    public List<DispositionDumpDTO> getDispositionDumpByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
+        List<Map<String, Object>> results = jdbcTemplate.queryForList(
+            dispositionDumpProperties.getQuery(), startDate, endDate);
+        
+        return results.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
+    
+    private DispositionDumpDTO mapToDTO(Map<String, Object> row) {
+        DispositionDumpDTO dto = new DispositionDumpDTO();
+        List<String> columns = dispositionDumpProperties.getColumnList();
+        
+        for (String column : columns) {
+            Object value = row.get(column);
+            dto.setValue(column, convertValue(value, column));
+        }
+        return dto;
+    }
+    
+    private Object convertValue(Object value, String column) {
+        if (value == null) return "";
+        
+        // Handle timestamp/datetime fields
+        if ("created_on".equalsIgnoreCase(column) && value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value).toLocalDateTime();
+        }
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
+        }
+        if (value instanceof java.sql.Time) {
+            return ((java.sql.Time) value).toLocalTime();
+        }
+        if (value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value).toLocalDateTime();
+        }
+        
+        return value.toString();
+    }
+}
+
+
+@Service
+@RequiredArgsConstructor
+public class DispositionDumpExcelService {
+    
+    private final DispositionDumpProperties dispositionDumpProperties;
+    
+    public Workbook generateExcelReport(List<DispositionDumpDTO> reports, LocalDateTime startDate, LocalDateTime endDate) {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Disposition Dump");
+        
+        List<String> headers = dispositionDumpProperties.getHeaderList();
+        List<String> columns = dispositionDumpProperties.getColumnList();
+        
+        createTitle(workbook, sheet, startDate, endDate, headers.size());
+        createHeaders(workbook, sheet, headers);
+        createDataRows(workbook, sheet, reports, columns);
+        addSummary(workbook, sheet, reports.size(), headers.size());
+        autoSizeColumns(sheet, headers.size());
+        
+        return workbook;
+    }
+    
+    private void createTitle(Workbook workbook, Sheet sheet, LocalDateTime startDate, LocalDateTime endDate, int columnCount) {
+        Row titleRow = sheet.createRow(0);
+        Cell titleCell = titleRow.createCell(0);
+        
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String title = "Disposition Dump Report - " + 
+                      startDate.format(dateFormatter) + " to " + 
+                      endDate.format(dateFormatter);
+        
+        titleCell.setCellValue(title);
+        
+        CellStyle titleStyle = workbook.createCellStyle();
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 14);
+        titleStyle.setFont(titleFont);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+        titleCell.setCellStyle(titleStyle);
+        
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, columnCount - 1));
+    }
+    
+    private void createHeaders(Workbook workbook, Sheet sheet, List<String> headers) {
+        Row headerRow = sheet.createRow(2);
+        CellStyle headerStyle = createHeaderStyle(workbook);
+        
+        for (int i = 0; i < headers.size(); i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers.get(i));
+            cell.setCellStyle(headerStyle);
+        }
+    }
+    
+    private void createDataRows(Workbook workbook, Sheet sheet, List<DispositionDumpDTO> reports, List<String> columns) {
+        int rowNum = 3;
+        CellStyle dataStyle = createDataStyle(workbook);
+        CellStyle datetimeStyle = createDateTimeStyle(workbook);
+        
+        for (DispositionDumpDTO report : reports) {
+            Row row = sheet.createRow(rowNum++);
+            
+            for (int i = 0; i < columns.size(); i++) {
+                String column = columns.get(i);
+                Object value = report.getValue(column);
+                Cell cell = row.createCell(i);
+                cell.setCellStyle(dataStyle);
+                
+                setCellValue(cell, value, column, datetimeStyle);
+            }
+        }
+    }
+    
+    private void setCellValue(Cell cell, Object value, String column, CellStyle datetimeStyle) {
+        if (value == null) {
+            cell.setCellValue("");
+        } else if (value instanceof LocalDateTime) {
+            cell.setCellValue(java.sql.Timestamp.valueOf((LocalDateTime) value));
+            cell.setCellStyle(datetimeStyle);
+        } else if (value instanceof LocalDate) {
+            cell.setCellValue(java.sql.Date.valueOf((LocalDate) value));
+            // You can add a date style here if needed
+        } else if (value instanceof LocalTime) {
+            cell.setCellValue(value.toString());
+            // You can add a time style here if needed
+        } else if (value instanceof Number) {
+            cell.setCellValue(((Number) value).doubleValue());
+        } else {
+            cell.setCellValue(value.toString());
+        }
+    }
+    
+    private void addSummary(Workbook workbook, Sheet sheet, int totalRecords, int columnCount) {
+        Row summaryRow = sheet.createRow(sheet.getLastRowNum() + 2);
+        Cell summaryCell = summaryRow.createCell(0);
+        summaryCell.setCellValue("Total Records: " + totalRecords + " | Generated on: " + LocalDateTime.now());
+        
+        CellStyle summaryStyle = workbook.createCellStyle();
+        Font summaryFont = workbook.createFont();
+        summaryFont.setBold(true);
+        summaryStyle.setFont(summaryFont);
+        summaryCell.setCellStyle(summaryStyle);
+        
+        sheet.addMergedRegion(new CellRangeAddress(summaryRow.getRowNum(), summaryRow.getRowNum(), 0, columnCount - 1));
+    }
+    
+    private void autoSizeColumns(Sheet sheet, int columnCount) {
+        for (int i = 0; i < columnCount; i++) {
+            sheet.autoSizeColumn(i);
+        }
+    }
+    
+    private CellStyle createHeaderStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.WHITE.getIndex());
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setBorderBottom(BorderStyle.THIN);
+        return style;
+    }
+    
+    private CellStyle createDataStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        return style;
+    }
+    
+    private CellStyle createDateTimeStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat(workbook.createDataFormat().getFormat("yyyy-mm-dd hh:mm:ss"));
+        return style;
+    }
+}
+
+
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/reports")
+@Tag(name = "Disposition Dump API", description = "API for generating disposition dump Excel reports")
+public class DispositionDumpController {
+    
+    private final DispositionDumpService dispositionDumpService;
+    private final DispositionDumpExcelService dispositionDumpExcelService;
+    
+    @Operation(summary = "Export disposition dump to Excel")
+    @GetMapping("/disposition-dump/excel")
+    public void exportDispositionDumpToExcel(
+            @Parameter(description = "Start date time (YYYY-MM-DD HH:mm:ss)", example = "2024-01-01 00:00:00")
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startDate,
+            
+            @Parameter(description = "End date time (YYYY-MM-DD HH:mm:ss)", example = "2024-12-31 23:59:59")
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endDate,
+            
+            HttpServletResponse response) throws IOException {
+        
+        // Validate dates
+        if (endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("End date cannot be before start date");
+        }
+        
+        // Get data from database
+        List<DispositionDumpDTO> reports = dispositionDumpService.getDispositionDumpByDateRange(startDate, endDate);
+        
+        // Setup response
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        String filename = "disposition_dump_" + 
+                         startDate.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + "_to_" +
+                         endDate.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".xlsx";
+        response.setHeader("Content-Disposition", "attachment; filename=" + filename);
+        
+        // Generate Excel
+        Workbook workbook = dispositionDumpExcelService.generateExcelReport(reports, startDate, endDate);
+        workbook.write(response.getOutputStream());
+        workbook.close();
+    }
+}
+
+
+disposition-dump:
+  query: |
+    SELECT um.login_id, sd.created_on, sd.call_id, cm4.name AS Ticket_Type, cm3.name AS Category, cm2.name AS SubCategory, cm1.name AS Product_Category, sm.status_name AS Resolution_code 
+    FROM ib_service_details sd 
+    LEFT JOIN ib_category_master cm1 ON sd.category_id = cm1.category_id 
+    LEFT JOIN ib_category_master cm2 ON cm1.pid = cm2.category_id 
+    LEFT JOIN ib_category_master cm3 ON cm2.pid = cm3.category_id 
+    LEFT JOIN ib_category_master cm4 ON cm3.pid = cm4.category_id 
+    LEFT JOIN ib_status_master sm ON sd.status_id = sm.status_id 
+    LEFT JOIN ib_user_master um ON sd.created_by = um.user_id 
+    WHERE sd.call_id IS NOT NULL AND sd.call_id <> '' AND sd.created_on BETWEEN ? AND ? 
+    ORDER BY sd.created_on DESC
+  columns: "login_id,created_on,call_id,Ticket_Type,Category,SubCategory,Product_Category,Resolution_code"
+  headers: "Login ID,Created On,Call ID,Ticket Type,Category,SubCategory,Product Category,Resolution Code"
