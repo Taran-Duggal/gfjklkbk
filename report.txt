@@ -544,3 +544,336 @@ public class ReportController {
         return reportService.convertToExcelDTO(reports);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ukp
+
+spring:
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=your_db
+    username: username
+    password: password
+
+report:
+  query: |
+    SELECT interaction_id, call_id, agent_id, product_category, sub_category, 
+           resolution_code, date, time, mobile_number_last_4_digit 
+    FROM ib_bank_report 
+    WHERE date BETWEEN ? AND ?
+  columns: "interaction_id,call_id,agent_id,product_category,sub_category,resolution_code,date,time,mobile_number_last_4_digit"
+  headers: "Interaction ID,Call ID,Agent ID,Product Category,Sub Category,Resolution Code,Date,Time,Mobile Last 4 Digits"
+
+
+
+
+@Component
+@ConfigurationProperties(prefix = "report")
+@Data
+public class ReportProperties {
+    private String query;
+    private String columns;
+    private String headers;
+    
+    public List<String> getColumnList() {
+        return Arrays.asList(columns.split(","));
+    }
+    
+    public List<String> getHeaderList() {
+        return Arrays.asList(headers.split(","));
+    }
+}
+
+
+
+
+@Data
+public class ReportExcelDTO {
+    private String interactionId;
+    private String callId;
+    private String agentId;
+    private String productCategory;
+    private String subCategory;
+    private String resolutionCode;
+    private LocalDate date;
+    private LocalTime time;
+    private String mobileNumberLast4Digit;
+}
+
+
+
+
+
+
+
+
+
+@Service
+@RequiredArgsConstructor
+public class ReportService {
+    
+    private final JdbcTemplate jdbcTemplate;
+    private final ReportProperties reportProperties;
+    
+    public List<ReportExcelDTO> getReportsByDateRange(LocalDate startDate, LocalDate endDate) {
+        List<Map<String, Object>> results = jdbcTemplate.queryForList(
+            reportProperties.getQuery(), startDate, endDate);
+        
+        return results.stream().map(this::mapToDTO).collect(Collectors.toList());
+    }
+    
+    private ReportExcelDTO mapToDTO(Map<String, Object> row) {
+        ReportExcelDTO dto = new ReportExcelDTO();
+        dto.setInteractionId(getStringValue(row, "interaction_id"));
+        dto.setCallId(getStringValue(row, "call_id"));
+        dto.setAgentId(getStringValue(row, "agent_id"));
+        dto.setProductCategory(getStringValue(row, "product_category"));
+        dto.setSubCategory(getStringValue(row, "sub_category"));
+        dto.setResolutionCode(getStringValue(row, "resolution_code"));
+        dto.setDate(getLocalDateValue(row, "date"));
+        dto.setTime(getLocalTimeValue(row, "time"));
+        dto.setMobileNumberLast4Digit(getStringValue(row, "mobile_number_last_4_digit"));
+        return dto;
+    }
+    
+    private String getStringValue(Map<String, Object> row, String column) {
+        Object value = row.get(column);
+        return value != null ? value.toString() : "";
+    }
+    
+    private LocalDate getLocalDateValue(Map<String, Object> row, String column) {
+        Object value = row.get(column);
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
+        }
+        return null;
+    }
+    
+    private LocalTime getLocalTimeValue(Map<String, Object> row, String column) {
+        Object value = row.get(column);
+        if (value instanceof java.sql.Time) {
+            return ((java.sql.Time) value).toLocalTime();
+        }
+        return null;
+    }
+}
+
+
+
+
+
+
+@Service
+@RequiredArgsConstructor
+public class ExcelExportService {
+    
+    private final ReportProperties reportProperties;
+    
+    public Workbook generateExcelReport(List<ReportExcelDTO> reports, LocalDate startDate, LocalDate endDate) {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Bank Report");
+        
+        createTitle(workbook, sheet, startDate, endDate);
+        createHeaders(workbook, sheet);
+        createDataRows(workbook, sheet, reports);
+        addSummary(workbook, sheet, reports.size());
+        autoSizeColumns(sheet);
+        
+        return workbook;
+    }
+    
+    private void createTitle(Workbook workbook, Sheet sheet, LocalDate startDate, LocalDate endDate) {
+        Row titleRow = sheet.createRow(0);
+        Cell titleCell = titleRow.createCell(0);
+        titleCell.setCellValue("Bank Integration Report - " + startDate + " to " + endDate);
+        
+        CellStyle titleStyle = workbook.createCellStyle();
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 14);
+        titleStyle.setFont(titleFont);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+        titleCell.setCellStyle(titleStyle);
+        
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 8));
+    }
+    
+    private void createHeaders(Workbook workbook, Sheet sheet) {
+        Row headerRow = sheet.createRow(2);
+        List<String> headers = reportProperties.getHeaderList();
+        
+        CellStyle headerStyle = createHeaderStyle(workbook);
+        
+        for (int i = 0; i < headers.size(); i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers.get(i));
+            cell.setCellStyle(headerStyle);
+        }
+    }
+    
+    private void createDataRows(Workbook workbook, Sheet sheet, List<ReportExcelDTO> reports) {
+        int rowNum = 3;
+        CellStyle dataStyle = createDataStyle(workbook);
+        CellStyle dateStyle = createDateStyle(workbook);
+        CellStyle timeStyle = createTimeStyle(workbook);
+        
+        for (ReportExcelDTO report : reports) {
+            Row row = sheet.createRow(rowNum++);
+            
+            // Apply basic style to all cells first
+            for (int i = 0; i < 9; i++) {
+                row.createCell(i).setCellStyle(dataStyle);
+            }
+            
+            row.getCell(0).setCellValue(report.getInteractionId());
+            row.getCell(1).setCellValue(report.getCallId());
+            row.getCell(2).setCellValue(report.getAgentId());
+            row.getCell(3).setCellValue(report.getProductCategory());
+            row.getCell(4).setCellValue(report.getSubCategory());
+            row.getCell(5).setCellValue(report.getResolutionCode());
+            
+            if (report.getDate() != null) {
+                row.getCell(6).setCellValue(java.sql.Date.valueOf(report.getDate()));
+                row.getCell(6).setCellStyle(dateStyle);
+            }
+            
+            if (report.getTime() != null) {
+                row.getCell(7).setCellValue(report.getTime().toString());
+                row.getCell(7).setCellStyle(timeStyle);
+            }
+            
+            row.getCell(8).setCellValue(report.getMobileNumberLast4Digit());
+        }
+    }
+    
+    private void addSummary(Workbook workbook, Sheet sheet, int totalRecords) {
+        Row summaryRow = sheet.createRow(sheet.getLastRowNum() + 2);
+        Cell summaryCell = summaryRow.createCell(0);
+        summaryCell.setCellValue("Total Records: " + totalRecords + " | Generated on: " + LocalDateTime.now());
+        
+        CellStyle summaryStyle = workbook.createCellStyle();
+        Font summaryFont = workbook.createFont();
+        summaryFont.setBold(true);
+        summaryStyle.setFont(summaryFont);
+        summaryCell.setCellStyle(summaryStyle);
+        
+        sheet.addMergedRegion(new CellRangeAddress(summaryRow.getRowNum(), summaryRow.getRowNum(), 0, 8));
+    }
+    
+    private CellStyle createHeaderStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.WHITE.getIndex());
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setBorderBottom(BorderStyle.THIN);
+        return style;
+    }
+    
+    private CellStyle createDataStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setBorderBottom(BorderStyle.THIN);
+        return style;
+    }
+    
+    private CellStyle createDateStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat(workbook.createDataFormat().getFormat("yyyy-mm-dd"));
+        return style;
+    }
+    
+    private CellStyle createTimeStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat(workbook.createDataFormat().getFormat("hh:mm:ss"));
+        return style;
+    }
+    
+    private void autoSizeColumns(Sheet sheet) {
+        for (int i = 0; i < 9; i++) {
+            sheet.autoSizeColumn(i);
+        }
+    }
+}
+
+
+
+
+
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/reports")
+@Tag(name = "Bank Report API", description = "API for generating Excel reports")
+public class ReportController {
+    
+    private final ReportService reportService;
+    private final ExcelExportService excelExportService;
+    
+    @Operation(summary = "Export bank report to Excel")
+    @GetMapping("/bank/excel")
+    public void exportToExcel(
+            @Parameter(description = "Start date (YYYY-MM-DD)", example = "2024-01-01")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            
+            @Parameter(description = "End date (YYYY-MM-DD)", example = "2024-12-31")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            
+            HttpServletResponse response) throws IOException {
+        
+        // Validate dates
+        if (endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("End date cannot be before start date");
+        }
+        
+        // Get data from database
+        List<ReportExcelDTO> reports = reportService.getReportsByDateRange(startDate, endDate);
+        
+        // Setup response
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        String filename = "bank_report_" + startDate + "_to_" + endDate + ".xlsx";
+        response.setHeader("Content-Disposition", "attachment; filename=" + filename);
+        
+        // Generate Excel
+        Workbook workbook = excelExportService.generateExcelReport(reports, startDate, endDate);
+        workbook.write(response.getOutputStream());
+        workbook.close();
+    }
+}
