@@ -1,0 +1,264 @@
+package com.demsIB.integration.bank.service;
+
+import com.demsIB.integration.bank.dto.request.DispositionDumpDTO;
+import com.demsIB.integration.bank.dto.request.BankReportDTO;
+import jcifs.CIFSContext;
+import jcifs.Config;
+import jcifs.config.PropertyConfiguration;
+import jcifs.context.BaseContext;
+import jcifs.context.SingletonContext;
+import jcifs.smb.NtlmPasswordAuthentication;
+import jcifs.smb.NtlmPasswordAuthenticator;
+import jcifs.smb.SmbFile;
+import jcifs.smb.SmbFileOutputStream;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.io.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+@Service
+public class ReportSchedulerService {
+
+    private final Logger logger = LoggerFactory.getLogger("BANK_REPORT_LOGGER");
+
+    private final BankReportExcelService excelReportService;
+    private final ReportService reportService;
+    private final DispositionDumpExcelService dispositionDumpExcelService;
+
+    public ReportSchedulerService(BankReportExcelService excelReportService, ReportService reportService, DispositionDumpExcelService dispositionDumpExcelService) {
+        this.excelReportService = excelReportService;
+        this.reportService = reportService;
+        this.dispositionDumpExcelService = dispositionDumpExcelService;
+        setupJcifsConfiguration();
+    }
+
+    @Value("${reports.networkPath}")
+    private String networkPathUrl;
+
+    @Value("${bank.report.name}")
+    private String bankReportName;
+
+    @Value("${disposition-dump.report.name}")
+    private String dispositionDumpReportName;
+
+    @Value("${reports.username}")
+    private String username;
+
+    @Value("${reports.password}")
+    private String password;
+
+    @Value("${reports.domain}")
+    private String domain;
+
+    private void setupJcifsConfiguration() {
+        System.setProperty("jcifs.smb.client.disablePlainTextPasswords", "false");
+        System.setProperty("jcifs.smb.client.soTimeout", "120000"); // 2 minutes
+        System.setProperty("jcifs.smb.client.connTimeout", "30000"); // 30 seconds
+        System.setProperty("jcifs.smb.client.enableExtendedSecurity", "false");
+
+        System.setProperty("jcifs.smb.client.guestAccess", "true");
+        System.setProperty("jcifs.smb.client.useExtendedSecurity", "false");
+
+        logger.info("JCIFS configured for anonymous/guest access");
+    }
+
+    private CIFSContext createCifsContext() {
+        CIFSContext context = SingletonContext.getInstance();
+
+        NtlmPasswordAuthenticator authenticator = new NtlmPasswordAuthenticator(domain,username,password);
+        logger.info("CIFS context created with credentials: {}", authenticator);
+        return context.withCredentials(authenticator);
+    }
+
+    private String normalizeNetworkPath(String fileName) {
+        String normalizedPath = networkPathUrl.trim();
+
+        logger.info("Original network path: {}", normalizedPath);
+
+        if (normalizedPath.startsWith("\\\\")) {
+            normalizedPath = "smb:" + normalizedPath.replace("\\", "/");
+        } else if (!normalizedPath.startsWith("smb://")) {
+            normalizedPath = "smb://" + normalizedPath.replace("\\", "/");
+        }
+
+        if (!normalizedPath.endsWith("/")) {
+            normalizedPath += "/";
+        }
+
+        String fullPath = normalizedPath + fileName;
+        logger.info("Normalized JCIFS path: {}", fullPath);
+
+        return fullPath;
+    }
+
+    private boolean testNetworkConnection(CIFSContext context) {
+        try {
+            String testPath = normalizeNetworkPath("").replaceAll("[^/]+$", "");
+            SmbFile smbDir = new SmbFile(testPath, context);
+
+            logger.info("Testing connection to: {}", testPath);
+
+            if (smbDir.exists()) {
+                logger.info("Network path is accessible: {}", testPath);
+
+                SmbFile testFile = new SmbFile(testPath + "test_write_access.tmp", context);
+                try (OutputStream out = new SmbFileOutputStream(testFile)) {
+                    out.write("test".getBytes());
+                    logger.info("Write permission confirmed");
+                }
+                testFile.delete();
+
+                return true;
+            } else {
+                logger.warn("Network path does not exist or is not accessible: {}", testPath);
+                return false;
+            }
+        } catch (Exception e) {
+            logger.error("Network connection test failed", e);
+            return false;
+        }
+    }
+
+    private void saveExcelToNetworkShare(Workbook workbook, String fileName) throws Exception {
+        CIFSContext context = createCifsContext();
+        String fullSmbPath = normalizeNetworkPath(fileName);
+
+        logger.info("Attempting to save file via JCIFS (anonymous access) to: {}", fullSmbPath);
+
+        SmbFile smbFile = null;
+        try {
+            if (!testNetworkConnection(context)) {
+                throw new Exception("Network path is not accessible. Please check share permissions.");
+            }
+
+            smbFile = new SmbFile(fullSmbPath, context);
+
+            SmbFile parentDir = new SmbFile(smbFile.getParent(), context);
+            if (!parentDir.exists()) {
+                logger.info("Creating directory: {}", parentDir.getPath());
+                parentDir.mkdirs();
+                Thread.sleep(500);
+            }
+
+            try (OutputStream out = new SmbFileOutputStream(smbFile);
+                 BufferedOutputStream bufferedOut = new BufferedOutputStream(out)) {
+
+                workbook.write(bufferedOut);
+                bufferedOut.flush();
+
+                logger.info("Excel file successfully saved to network share: {}", fullSmbPath);
+
+                if (smbFile.exists() && smbFile.length() > 0) {
+                    logger.info("File verification successful. Size: {} bytes", smbFile.length());
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("JCIFS operation failed for path: {}", fullSmbPath, e);
+
+            String errorMessage = "Failed to save report: " + e.getMessage();
+            if (e.getMessage().contains("Access is denied")) {
+                errorMessage += ". Please check share permissions for anonymous/guest access.";
+            } else if (e.getMessage().contains("Network path not found")) {
+                errorMessage += ". Please verify the network path and share name.";
+            }
+
+            throw new Exception(errorMessage, e);
+        } finally {
+            if (workbook != null) {
+                try {
+                    workbook.close();
+                } catch (Exception e) {
+                    logger.warn("Error closing workbook", e);
+                }
+            }
+        }
+    }
+
+    @Scheduled(cron = "${report.scheduler.time}")
+    public void generateBankReport() {
+        try {
+            logger.info("Starting Block_Unblock_Dump report generation");
+            LocalDate startDate = LocalDate.now().minusDays(1);
+            LocalDate endDate = LocalDate.now().minusDays(1);
+            List<BankReportDTO> reports = reportService.getReportsByDateRange(startDate, endDate);
+            if (reports.isEmpty()) {
+                logger.warn("No data found for date range: {} to {}", startDate, endDate);
+            }
+            Workbook workbook = excelReportService.generateExcelReport(reports, startDate, endDate);
+            String filename = bankReportName + startDate + "_to_" + endDate + ".xlsx";
+            saveExcelToNetworkShare(workbook, filename);
+            logger.info("Block_Unblock_Dump report generated successfully: {}", filename);
+        } catch (Exception e) {
+            logger.error("Failed to generate Block_Unblock_Dump report", e);
+        }
+    }
+
+    @Scheduled(cron = "${disposition-dump.scheduler.time}")
+    public void generateDispositionDumpReport() {
+        try {
+            logger.info("Generating Disposition Dump report");
+            LocalDateTime startDate = LocalDateTime.now().minusDays(1).withHour(0).withMinute(0);
+            LocalDateTime endDate = LocalDateTime.now().minusDays(1).withHour(23).withMinute(59);
+            List<DispositionDumpDTO> reports = reportService.getDispositionDumpByDateRange(startDate, endDate);
+            if (reports.isEmpty()) {
+                logger.warn("No data found for date range: {} to {}", startDate, endDate);
+            }
+            Workbook workbook = dispositionDumpExcelService.generateExcelReport(reports, startDate, endDate);
+            String filename = dispositionDumpReportName +
+                    startDate.format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "_to_" +
+                    endDate.format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".xlsx";
+            saveExcelToNetworkShare(workbook, filename);
+            logger.info("Disposition Dump report generated successfully");
+        } catch (Exception e) {
+            logger.error("Failed to generate Disposition Dump report", e);
+        }
+    }
+
+    public String testConnection() {
+        try {
+            CIFSContext context = createCifsContext();
+            boolean isConnected = testNetworkConnection(context);
+
+            if (isConnected) {
+                return "SUCCESS: Network share is accessible with anonymous/guest access";
+            } else {
+                return "FAILED: Cannot access network share";
+            }
+        } catch (Exception e) {
+            return "ERROR testing connection: " + e.getMessage();
+        }
+    }
+}
+
+
+
+25-09-25 16:15:35.181 [Transport0] WARN  jcifs.smb.SmbTransportImpl - Disconnecting transport while still in use Transport0[AZIBDRCRMDBUAT/10.68.3.23:445,state=5,signingEnforced=false,usage=3]: [SmbSession[credentials=,targetHost=azibdrcrmdbuat,targetDomain=null,uid=0,connectionState=0,usage=3]]
+
+
+
+bank.report.name=Block_Unblock_Dump__
+report.query=SELECT interaction_id, call_id, agent_id, product_category, sub_category,resolution_code, date, time, mobile_number_last_4_digit, created_by FROM ib_bank_report WHERE date BETWEEN ? AND ?
+report.columns= interaction_id,call_id,agent_id,product_category,sub_category,resolution_code,date,time,mobile_number_last_4_digit,created_by
+report.headers= Interaction ID,Call ID,Agent ID,Product Category,Sub Category,Resolution Code,Date,Time,Mobile Last 4 Digits, Created By
+report.scheduler.time=0 39 14 * * *
+
+disposition-dump.report.name=DispositionDumpReport__
+disposition-dump.query=SELECT um.login_id, sd.created_on, sd.created_by, sd.call_id, cm4.name AS Ticket_Type, cm3.name AS Category, cm2.name AS SubCategory, cm1.name AS Product_Category, sm.status_name AS Resolution_code FROM ib_service_details sd LEFT JOIN ib_category_master cm1 ON sd.category_id = cm1.category_id LEFT JOIN ib_category_master cm2 ON cm1.pid = cm2.category_id LEFT JOIN ib_category_master cm3 ON cm2.pid = cm3.category_id LEFT JOIN ib_category_master cm4 ON cm3.pid = cm4.category_id LEFT JOIN ib_status_master sm ON sd.status_id = sm.status_id LEFT JOIN ib_user_master um ON sd.created_by = um.user_id WHERE sd.call_id IS NOT NULL AND sd.call_id <> '' AND sd.created_on BETWEEN ? AND ? ORDER BY sd.created_on DESC
+disposition-dump.columns=login_id,created_on,created_by,call_id,Ticket_Type,Category,SubCategory,Product_Category,Resolution_code
+disposition-dump.headers=Login ID,Created On,Created BY,Call ID,Ticket Type,Category,SubCategory,Product Category,Resolution Code
+disposition-dump.scheduler.time=0 39 14 * * *
+reports.networkPath=\\\\AZIBDRCRMDBUAT\\Reports\\
+#reports.networkPath=C:\\Reports\\
+
+reports.username=
+reports.password=
+reports.domain=
