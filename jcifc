@@ -657,3 +657,225 @@ jcifs.smb.client.connTimeout=30000
 jcifs.smb.client.responseTimeout=60000
 jcifs.smb.client.keepAlive=true
 jcifs.smb.client.sessionTimeout=300000
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+private void setupJcifsConfiguration() {
+    // Clear any conflicting properties
+    System.clearProperty("jcifs.smb.client.disablePlainTextPasswords");
+    System.clearProperty("jcifs.smb.client.useExtendedSecurity");
+    
+    // Essential settings for Windows share access
+    System.setProperty("jcifs.smb.client.disablePlainTextPasswords", "false");
+    System.setProperty("jcifs.smb.client.soTimeout", "60000");
+    System.setProperty("jcifs.smb.client.connTimeout", "30000");
+    
+    // Critical: Disable extended security for local Windows shares
+    System.setProperty("jcifs.smb.client.useExtendedSecurity", "false");
+    System.setProperty("jcifs.smb.client.enableExtendedSecurity", "false");
+    
+    // Enable guest access
+    System.setProperty("jcifs.smb.client.guestAccess", "true");
+    System.setProperty("jcifs.smb.client.allowGuestAccess", "true");
+    
+    // Use NTLM v1 for better compatibility
+    System.setProperty("jcifs.smb.client.lmCompatibility", "0");
+    
+    // Disable SMB2 for better compatibility with JCIFS
+    System.setProperty("jcifs.smb.client.enableSMB2", "false");
+    
+    logger.info("JCIFS configured for Windows share access");
+}
+
+
+
+
+private String normalizeNetworkPath(String fileName) {
+    String normalizedPath = networkPathUrl.trim();
+    
+    logger.info("Original network path: {}", normalizedPath);
+    
+    // Handle Windows UNC path (\\server\share)
+    if (normalizedPath.startsWith("\\\\")) {
+        normalizedPath = "smb:" + normalizedPath.replace("\\", "/");
+    }
+    // Handle already normalized paths
+    else if (!normalizedPath.startsWith("smb://")) {
+        normalizedPath = "smb://" + normalizedPath.replace("\\", "/");
+    }
+    
+    // Ensure it ends with /
+    if (!normalizedPath.endsWith("/")) {
+        normalizedPath += "/";
+    }
+    
+    String fullPath = normalizedPath + fileName;
+    logger.info("JCIFS Path: {}", fullPath);
+    
+    return fullPath;
+}
+
+
+
+private CIFSContext createCifsContext() {
+    try {
+        // Since Windows share works without credentials, use anonymous access
+        logger.info("Creating CIFS context with anonymous access");
+        
+        // Use BaseContext for better configuration control
+        PropertyConfiguration config = new PropertyConfiguration(System.getProperties());
+        BaseContext context = new BaseContext(config);
+        
+        return context.withAnonymousCredentials();
+        
+    } catch (Exception e) {
+        logger.error("Error creating CIFS context, using singleton", e);
+        return SingletonContext.getInstance().withAnonymousCredentials();
+    }
+}
+
+
+public String testConnection() {
+    SmbFile smbDir = null;
+    SmbFile testFile = null;
+    
+    try {
+        CIFSContext context = createCifsContext();
+        String testPath = normalizeNetworkPath("").replaceAll("[^/]+$", "");
+        
+        logger.info("=== JCIFS Connection Test ===");
+        logger.info("Testing path: {}", testPath);
+        logger.info("Context: {}", context);
+        
+        // Test directory access
+        smbDir = new SmbFile(testPath, context);
+        logger.info("SmbFile created: {}", smbDir);
+        
+        if (smbDir.exists()) {
+            logger.info("✓ Path exists");
+        } else {
+            return "FAILED: Path does not exist: " + testPath;
+        }
+        
+        if (smbDir.isDirectory()) {
+            logger.info("✓ Is directory");
+        } else {
+            return "FAILED: Not a directory";
+        }
+        
+        // Test write permission
+        String testFileName = "jcifs_test_" + System.currentTimeMillis() + ".txt";
+        testFile = new SmbFile(testPath + testFileName, context);
+        logger.info("Test file: {}", testFile);
+        
+        try (SmbFileOutputStream out = new SmbFileOutputStream(testFile)) {
+            out.write("JCIFS test content".getBytes());
+            logger.info("✓ Write successful");
+        }
+        
+        // Verify file was created
+        if (testFile.exists() && testFile.length() > 0) {
+            logger.info("✓ File verified - Size: {} bytes", testFile.length());
+        } else {
+            return "FAILED: File created but verification failed";
+        }
+        
+        // Cleanup
+        testFile.delete();
+        logger.info("✓ Cleanup successful");
+        
+        return "SUCCESS: JCIFS can access and write to share";
+        
+    } catch (Exception e) {
+        logger.error("!!! JCIFS TEST FAILED !!!", e);
+        
+        // Provide specific error messages
+        if (e.getMessage().contains("Access is denied")) {
+            return "ACCESS DENIED: Check share permissions. Try enabling guest access on the share.";
+        } else if (e.getMessage().contains("Failed to connect")) {
+            return "CONNECTION FAILED: Check network connectivity and share name.";
+        } else if (e.getMessage().contains("The network path was not found")) {
+            return "NETWORK PATH NOT FOUND: Verify share path and DNS resolution.";
+        } else {
+            return "ERROR: " + e.getClass().getSimpleName() + " - " + e.getMessage();
+        }
+    } finally {
+        // Cleanup resources
+        closeSmbFileQuietly(testFile);
+        closeSmbFileQuietly(smbDir);
+    }
+}
+
+private void closeSmbFileQuietly(SmbFile file) {
+    if (file != null) {
+        try {
+            // Close any open streams
+            if (file.getInputStream() != null) {
+                file.getInputStream().close();
+            }
+        } catch (Exception e) {
+            // Ignore cleanup errors
+        }
+    }
+}
+
+
+
+private void saveExcelWithJavaNio(Workbook workbook, String fileName) throws Exception {
+    // Use the exact Windows UNC path that worked in your test
+    String fullPath = "\\\\AZIBDRCRMDBUAT\\Reports\\" + fileName;
+    
+    logger.info("Saving file using Java NIO: {}", fullPath);
+    
+    Path path = Paths.get(fullPath);
+    
+    // Create parent directories if needed
+    Files.createDirectories(path.getParent());
+    
+    try (OutputStream out = Files.newOutputStream(path);
+         BufferedOutputStream bufferedOut = new BufferedOutputStream(out)) {
+        
+        workbook.write(bufferedOut);
+        bufferedOut.flush();
+        
+        logger.info("✓ File saved successfully: {}", fullPath);
+        
+        // Verify file was created
+        if (Files.exists(path) && Files.size(path) > 0) {
+            logger.info("✓ File verification passed - Size: {} bytes", Files.size(path));
+        }
+    } finally {
+        workbook.close();
+    }
+}
