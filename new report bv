@@ -148,3 +148,163 @@ java.lang.Exception: Network path does not exist: \\AZIBDRCRMDBUAT\Reports\
 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
 	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.demsIB.integration.bank.service;
+
+import com.demsIB.integration.bank.dto.request.DispositionDumpDTO;
+import com.demsIB.integration.bank.dto.request.ReportExcelDTO;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+@Service
+public class ReportSchedulerService {
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    private final ReportExcelExportService excelReportService;
+    private final DispositionDumpService dispositionDumpService;
+    private final ReportService reportService;
+    private final DispositionDumpExcelService dispositionDumpExcelService;
+
+    @Value("${reports.networkPath}")
+    private String networkPathUrl;
+
+    @Value("${bank.report.name}")
+    private String bankReportName;
+
+    @Value("${disposition-dump.report.name}")
+    private String dispositionDumpReportName;
+
+    public ReportSchedulerService(ReportExcelExportService excelReportService,
+                                  DispositionDumpService dispositionDumpService, 
+                                  ReportService reportService, 
+                                  DispositionDumpExcelService dispositionDumpExcelService) {
+        this.excelReportService = excelReportService;
+        this.dispositionDumpService = dispositionDumpService;
+        this.reportService = reportService;
+        this.dispositionDumpExcelService = dispositionDumpExcelService;
+    }
+
+    private void saveExcelToNetworkShare(Workbook workbook, String fileName) throws Exception {
+        // Normalize the UNC path - ensure it starts with \\ and uses correct separators
+        String normalizedPath = networkPathUrl.replace("/", "\\");
+        if (!normalizedPath.startsWith("\\\\")) {
+            normalizedPath = "\\\\" + normalizedPath;
+        }
+        
+        // Remove trailing slashes
+        normalizedPath = normalizedPath.replaceAll("[\\\\/]+$", "");
+        
+        String fullPath = normalizedPath + "\\" + fileName;
+        logger.info("Attempting to save file to: {}", fullPath);
+        
+        try {
+            // Create Path object
+            Path targetPath = Paths.get(fullPath);
+            
+            // Create parent directories if they don't exist
+            Path parentDir = targetPath.getParent();
+            if (parentDir != null && !Files.exists(parentDir)) {
+                Files.createDirectories(parentDir);
+                logger.info("Created directories: {}", parentDir);
+            }
+            
+            // Check if we can write to the directory
+            if (!Files.isWritable(parentDir)) {
+                throw new Exception("No write permission to network path: " + parentDir);
+            }
+            
+            // Write the file
+            try (FileOutputStream out = new FileOutputStream(targetPath.toFile());
+                 BufferedOutputStream bufferedOut = new BufferedOutputStream(out)) {
+                workbook.write(bufferedOut);
+                bufferedOut.flush();
+            }
+            
+            logger.info("Excel file saved successfully to: {}", fullPath);
+            
+        } catch (Exception e) {
+            logger.error("Failed to save Excel file to network share: {}", fullPath, e);
+            throw new Exception("Unable to save report to network location: " + e.getMessage(), e);
+        } finally {
+            if (workbook != null) {
+                try {
+                    workbook.close();
+                } catch (IOException e) {
+                    logger.warn("Failed to close workbook", e);
+                }
+            }
+        }
+    }
+
+    @Scheduled(cron = "${report.scheduler.time}")
+    public void generateBankReport() {
+        try {
+            logger.info("Starting Block_Unblock_Dump report generation");
+            LocalDate startDate = LocalDate.now().minusDays(1);
+            LocalDate endDate = LocalDate.now().minusDays(1);
+            List<ReportExcelDTO> reports = reportService.getReportsByDateRange(startDate, endDate);
+            if (reports.isEmpty()) {
+                logger.warn("No data found for date range: {} to {}", startDate, endDate);
+                return;
+            }
+            Workbook workbook = excelReportService.generateExcelReport(reports, startDate, endDate);
+            String filename = bankReportName + startDate + "_to_" + endDate + ".xlsx";
+            saveExcelToNetworkShare(workbook, filename);
+            logger.info("Block_Unblock_Dump report generated successfully: {}", filename);
+        } catch (Exception e) {
+            logger.error("Failed to generate Block_Unblock_Dump report", e);
+        }
+    }
+
+    @Scheduled(cron = "${disposition-dump.scheduler.time}")
+    public void generateDispositionDumpReport() {
+        try {
+            logger.info("Generating Disposition Dump report");
+            LocalDateTime startDate = LocalDateTime.now().minusDays(1).withHour(0).withMinute(0);
+            LocalDateTime endDate = LocalDateTime.now().minusDays(1).withHour(23).withMinute(59);
+            List<DispositionDumpDTO> reports = dispositionDumpService.getDispositionDumpByDateRange(startDate, endDate);
+            if (reports.isEmpty()) {
+                logger.warn("No data found for date range: {} to {}", startDate, endDate);
+                return;
+            }
+            Workbook workbook = dispositionDumpExcelService.generateExcelReport(reports, startDate, endDate);
+            String filename = dispositionDumpReportName +
+                    startDate.format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "_to_" +
+                    endDate.format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".xlsx";
+            saveExcelToNetworkShare(workbook, filename);
+            logger.info("Disposition Dump report generated successfully");
+        } catch (Exception e) {
+            logger.error("Failed to generate Disposition Dump report", e);
+        }
+    }
+}
