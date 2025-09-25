@@ -128,3 +128,23 @@ disposition-dump.columns=login_id,created_on,created_by,call_id,Ticket_Type,Cate
 disposition-dump.headers=Login ID,Created On,Created BY,Call ID,Ticket Type,Category,SubCategory,Product Category,Resolution Code
 disposition-dump.scheduler.time=0 59 18 * * *
 reports.networkPath=\\\\AZIBDCCRMDB01\\Reports\\
+
+
+25-09-25 11:29:00.724 [scheduling-1] ERROR c.d.i.b.s.ReportSchedulerService - Failed to generate Block_Unblock_Dump report
+java.lang.Exception: Network path does not exist: \\AZIBDRCRMDBUAT\Reports\
+	at com.demsIB.integration.bank.service.ReportSchedulerService.saveExcelToNetworkShare(ReportSchedulerService.java:48)
+	at com.demsIB.integration.bank.service.ReportSchedulerService.generateBankReport(ReportSchedulerService.java:87)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.scheduling.support.ScheduledMethodRunnable.runInternal(ScheduledMethodRunnable.java:130)
+	at org.springframework.scheduling.support.ScheduledMethodRunnable.lambda$run$2(ScheduledMethodRunnable.java:124)
+	at io.micrometer.observation.Observation.observe(Observation.java:499)
+	at org.springframework.scheduling.support.ScheduledMethodRunnable.run(ScheduledMethodRunnable.java:124)
+	at org.springframework.scheduling.support.DelegatingErrorHandlingRunnable.run(DelegatingErrorHandlingRunnable.java:54)
+	at org.springframework.scheduling.concurrent.ReschedulingRunnable.run(ReschedulingRunnable.java:96)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:304)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
