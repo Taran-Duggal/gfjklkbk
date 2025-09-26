@@ -1,0 +1,230 @@
+**HTTTP to HTTPS changes**
+
+
+
+cd C:\\Program Files\\Apache Software Foundation\\Tomcat\\conf
+
+
+
+keytool -genkeypair -alias localhostRSA -keyalg RSA -keysize 2048 -storetype JKS -keystore localhost-rsa.jks -validity 365 -storepass changeit -keypass changeit -dname "CN=localhost, OU=IT, O=Company, L=City, S=State, C=IN" -ext SAN=dns:azibdrcrmauat,dns:azibdrcrmwuat,dns:localhost,ip:127.0.0.1
+
+&nbsp;
+
+
+
+keytool -exportcert -alias localhostRSA -keystore localhost-rsa.jks -file localhost-rsa.crt -storepass changeit
+
+&nbsp;
+
+
+
+keytool -import -alias localhostRSA -file localhost-rsa.crt -keystore "C:\\Program Files\\Zulu\\zulu-21\\lib\\security\\cacerts" -storepass changeit
+
+&nbsp;
+
+
+
+keytool -exportcert -alias localhostRSA -keystore localhost-rsa.jks -file localhost-rsa.crt -storepass changeit -rfc
+
+&nbsp;
+
+&nbsp;
+
+certutil -addstore "Root" localhost-rsa.crt
+
+
+
+
+
+keytool -exportcert -alias localhostRSA -keystore localhost-rsa.jks -file localhost-rsa.crt -storepass changeit -rfc
+
+
+
+
+
+keytool -import -alias localhost-customRSA -file localhost-rsa.crt -keystore "C:\\Program Files\\Zulu\\zulu-21\\lib\\security\\cacerts" -storepass changeit -noprompt -trustcacerts
+
+
+
+keytool -list -keystore "C:\\Program Files\\Zulu\\zulu-21\\lib\\security\\cacerts" -storepass changeit | findstr localhost
+
+
+
+keytool -list -keystore "%JAVA\_HOME%\\lib\\security\\cacerts" -storepass changeit | findstr localhost
+
+
+
+
+
+keytool -list -keystore "C:\\Program Files\\Zulu\\zulu-21\\lib\\security\\cacerts" -storepass changeit | findstr localhost
+
+
+
+keytool -list -keystore "C:\\Program Files\\Zulu\\zulu-21\\lib\\security\\cacerts" -storepass changeit | findstr localhost-custom
+
+
+
+
+
+keytool -import -alias localhostRSA -file localhost-rsa.crt -keystore custom-truststore.jks -storepass changeit -noprompt
+
+
+
+keytool -importkeystore -srckeystore "C:\\Program Files\\Zulu\\zulu-21\\lib\\security\\cacerts" -destkeystore custom-truststore.jks -srcstorepass changeit -deststorepass changeit -noprompt
+
+
+
+
+
+keytool -printcert -sslserver localhost:9090
+
+
+
+
+
+
+
+
+
+
+
+Catalina.bat 
+
+
+
+
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Dcom.sun.net.ssl.checkRevocation=false -Dtrust\_all\_cert=true
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Djavax.net.ssl.trustStore="C:\\Program Files\\Zulu\\zulu-21\\lib\\security\\cacerts"
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Djavax.net.ssl.trustStorePassword=changeit
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Djavax.net.ssl.keyStore=conf/localhost-rsa.jks
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Djavax.net.ssl.keyStorePassword=changeit
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Djavax.net.ssl.trustStore=%CATALINA\_HOME%\\conf\\custom-truststore.jks
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Djavax.net.ssl.trustStorePassword=changeit
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Djavax.net.ssl.trustStoreType=JKS
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Dcom.sun.net.ssl.checkRevocation=false
+
+set JAVA\_OPTS=%JAVA\_OPTS% -Djavax.net.debug=ssl:handshake:verbose
+
+
+
+
+  ++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+  # Keystore configuration (your certificate)
+#server.ssl.enabled=true
+#server.ssl.key-store=classpath:localhost-rsa.jks
+#server.ssl.key-store-password=changeit
+#server.ssl.key-store-type=JKS
+#server.ssl.key-alias=localhost
+#server.ssl.key-password=changeit
+#
+## Truststore configuration (trusted certificates)
+#server.ssl.trust-store=classpath:truststore.jks
+#server.ssl.trust-store-password=changeit
+#server.ssl.trust-store-type=JKS
+#
+## Protocols
+#server.ssl.protocol=TLS
+#server.ssl.enabled-protocols=TLSv1.2,TLSv1.3
+#
+## For RestTemplate to trust the certificates
+#trust.store=classpath:truststore.jks
+#trust.store.password=changeit
+
+#
+#server.ssl.enabled=${SERVER_SSL_ENABLED:true}
+#server.ssl.key-store=${SERVER_SSL_KEY_STORE:classpath:server-keystore2.jks}
+#server.ssl.key-store-password=${SERVER_SSL_KEY_STORE_PASSWORD:Welcome@12345}
+#server.ssl.key-store-type=${SERVER_SSL_KEY_STORE_TYPE:JKS}
+#server.ssl.key-alias=${SERVER_SSL_KEY_ALIAS:localhost}
+#
+## Force HTTPS
+#security.require-ssl=${SERVER_SECURITY_REQUIRE_SSL:true}
+#
+## Additional security
+#server.ssl.protocol=${SERVER_SSL_PROTOCOL:TLS}
+#server.ssl.enabled-protocols=${SERVER_SSL_ENABLED_PROTOCOLS:TLSv1.2,TLSv1.3}
+##server.ssl.client-auth=${SERVER_SSL_CLIENT_AUTH}
+##server.ssl.key-password=${SERVER_SSL_KEY_PASSWORD}
+#server.tomcat.remoteip.protocol-header=x-forwarded-proto
+#server.tomcat.remoteip.remote-ip-header=x-forwarded-for
+#server.tomcat.remoteip.internal-proxies=.*
+
+
+#server.ssl.trust-store=classpath:truststore.jks
+#server.ssl.trust-store-password=changeit
+#server.ssl.trust-store-type=JKS
+
+  ++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+cd C:\Program Files\Apache Software Foundation\Tomcat\conf
+
+keytool -genkeypair -alias localhostRSA -keyalg RSA -keysize 2048 -storetype JKS -keystore localhost-rsa.jks -validity 365 -storepass changeit -keypass changeit -dname "CN=localhost, OU=IT, O=Company, L=City, S=State, C=IN" -ext SAN=dns:azibdrcrmauat,dns:azibdrcrmwuat,dns:localhost,ip:127.0.0.1
+ 
+
+keytool -exportcert -alias localhostRSA -keystore localhost-rsa.jks -file localhost-rsa.crt -storepass changeit
+ 
+
+keytool -import -alias localhostRSA -file localhost-rsa.crt -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit
+ 
+
+keytool -exportcert -alias localhostRSA -keystore localhost-rsa.jks -file localhost-rsa.crt -storepass changeit -rfc
+ 
+ 
+certutil -addstore "Root" localhost-rsa.crt
+
+
+keytool -exportcert -alias localhostRSA -keystore localhost-rsa.jks -file localhost-rsa.crt -storepass changeit -rfc
+
+
+keytool -import -alias localhost-customRSA -file localhost-rsa.crt -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit -noprompt -trustcacerts
+
+keytool -list -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit | findstr localhost
+
+keytool -list -keystore "%JAVA_HOME%\lib\security\cacerts" -storepass changeit | findstr localhost
+
+
+keytool -list -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit | findstr localhost
+
+keytool -list -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -storepass changeit | findstr localhost-custom
+
+
+keytool -import -alias localhostRSA -file localhost-rsa.crt -keystore custom-truststore.jks -storepass changeit -noprompt
+
+keytool -importkeystore -srckeystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -destkeystore custom-truststore.jks -srcstorepass changeit -deststorepass changeit -noprompt
+
+
+keytool -printcert -sslserver localhost:9090
+
+
+keytool -list -keystore "C:\Program Files\Zulu\zulu-21\lib\security\cacerts" -v -storepass changeit
+
+
+
+
+
+Catalina.bat 
+
+
+set JAVA_OPTS=%JAVA_OPTS% -Dcom.sun.net.ssl.checkRevocation=false -Dtrust_all_cert=true
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStore="C:\Program Files\Zulu\zulu-21\lib\security\cacerts"
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStorePassword=changeit
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.keyStore=conf/localhost-rsa.jks
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.keyStorePassword=changeit
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStore=%CATALINA_HOME%\conf\custom-truststore.jks
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStorePassword=changeit
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.ssl.trustStoreType=JKS
+set JAVA_OPTS=%JAVA_OPTS% -Dcom.sun.net.ssl.checkRevocation=false
+set JAVA_OPTS=%JAVA_OPTS% -Djavax.net.debug=ssl:handshake:verbose
