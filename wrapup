@@ -432,3 +432,298 @@ this is the response of one of the api that is /api/v2/analytics/conversations/d
   "held": true,
   "wrapupSkipped": true
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// WrapupRequest.java
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class WrapupRequest {
+    private String wrapup;
+    private String state;
+    private Boolean recording;
+    private Boolean muted;
+    private Boolean confined;
+    private Boolean held;
+    private Boolean wrapupSkipped;
+}
+
+// ConversationDetailsResponse.java
+@Data
+public class ConversationDetailsResponse {
+    private List<Conversation> conversations;
+    
+    @Data
+    public static class Conversation {
+        private String conversationId;
+        private List<Participant> participants;
+    }
+    
+    @Data
+    public static class Participant {
+        private String participantId;
+        private String purpose;
+        private String userId;
+    }
+}
+
+
+@Service
+public class ConversationService {
+    
+    private final RestTemplate restTemplate;
+    
+    public ConversationService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+    
+    /**
+     * Get agent participant ID from conversation details API
+     */
+    public String getAgentParticipantId(String conversationId) {
+        String detailsUrl = "https://your-base-url/api/v2/analytics/conversations/details?id=" + conversationId;
+        
+        ResponseEntity<ConversationDetailsResponse> response = restTemplate.getForEntity(
+            detailsUrl, ConversationDetailsResponse.class);
+        
+        return extractAgentParticipantId(response.getBody(), conversationId);
+    }
+    
+    private String extractAgentParticipantId(ConversationDetailsResponse response, String conversationId) {
+        if (response == null || response.getConversations() == null || response.getConversations().isEmpty()) {
+            throw new RuntimeException("No conversation found with ID: " + conversationId);
+        }
+        
+        ConversationDetailsResponse.Conversation conversation = response.getConversations().get(0);
+        
+        return conversation.getParticipants().stream()
+                .filter(participant -> "agent".equals(participant.getPurpose()))
+                .findFirst()
+                .map(ConversationDetailsResponse.Participant::getParticipantId)
+                .orElseThrow(() -> new RuntimeException("No agent participant found in conversation: " + conversationId));
+    }
+    
+    /**
+     * Update participant wrapup using the main API
+     */
+    public void updateParticipantWrapup(String conversationId, String participantId, WrapupRequest wrapupRequest) {
+        String updateUrl = String.format(
+            "https://your-base-url/api/v2/conversations/calls/%s/participants/%s",
+            conversationId, participantId);
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        HttpEntity<WrapupRequest> requestEntity = new HttpEntity<>(wrapupRequest, headers);
+        
+        ResponseEntity<String> response = restTemplate.exchange(
+            updateUrl, HttpMethod.PATCH, requestEntity, String.class);
+        
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("Failed to update participant wrapup. Status: " + response.getStatusCode());
+        }
+    }
+    
+    /**
+     * Complete flow: Get participantId and update wrapup
+     */
+    public void processWrapupForConversation(String conversationId, WrapupRequest wrapupRequest) {
+        String participantId = getAgentParticipantId(conversationId);
+        updateParticipantWrapup(conversationId, participantId, wrapupRequest);
+    }
+}
+
+
+@RestController
+@RequestMapping("/api/v2/conversations/calls")
+public class ConversationController {
+    
+    private final ConversationService conversationService;
+    
+    public ConversationController(ConversationService conversationService) {
+        this.conversationService = conversationService;
+    }
+    
+    /**
+     * MAIN API: Update participant wrapup
+     * PATCH /api/v2/conversations/calls/{conversationId}/participants/{participantId}
+     */
+    @PatchMapping("/{conversationId}/participants/{participantId}")
+    public ResponseEntity<Map<String, String>> updateParticipantWrapup(
+            @PathVariable String conversationId,
+            @PathVariable String participantId,
+            @RequestBody WrapupRequest wrapupRequest) {
+        
+        try {
+            conversationService.updateParticipantWrapup(conversationId, participantId, wrapupRequest);
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Participant wrapup updated successfully");
+            response.put("conversationId", conversationId);
+            response.put("participantId", participantId);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            errorResponse.put("participantId", participantId);
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+    
+    /**
+     * Helper API: Get agent participant ID for a conversation
+     * GET /api/v2/conversations/calls/{conversationId}/agent-participant
+     */
+    @GetMapping("/{conversationId}/agent-participant")
+    public ResponseEntity<Map<String, String>> getAgentParticipantId(@PathVariable String conversationId) {
+        try {
+            String participantId = conversationService.getAgentParticipantId(conversationId);
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("conversationId", conversationId);
+            response.put("agentParticipantId", participantId);
+            response.put("status", "success");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
+    }
+    
+    /**
+     * Combined flow: Auto-get participantId and update wrapup
+     * POST /api/v2/conversations/calls/{conversationId}/wrapup
+     */
+    @PostMapping("/{conversationId}/wrapup")
+    public ResponseEntity<Map<String, String>> processConversationWrapup(
+            @PathVariable String conversationId,
+            @RequestBody WrapupRequest wrapupRequest) {
+        
+        try {
+            conversationService.processWrapupForConversation(conversationId, wrapupRequest);
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Conversation wrapup processed successfully");
+            response.put("conversationId", conversationId);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+}
+
+
+@Configuration
+public class AppConfig {
+    
+    @Value("${external.api.base-url}")
+    private String baseUrl;
+    
+    @Bean
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder
+            .rootUri(baseUrl)
+            .setConnectTimeout(Duration.ofSeconds(30))
+            .setReadTimeout(Duration.ofSeconds(30))
+            .build();
+    }
+}
+
+????????????????????????????????????????????
+5. Usage Examples
+1. Get Agent Participant ID Only:
+bash
+GET http://localhost:8080/api/v2/conversations/calls/caeee5d5-0053-459e-b179-db529255c2f7/agent-participant
+Response:
+
+json
+{
+  "conversationId": "caeee5d5-0053-459e-b179-db529255c2f7",
+  "agentParticipantId": "285e99d1-c459-4b43-843d-89afa4ea5791",
+  "status": "success"
+}
+2. Main API - Update Participant Wrapup:
+bash
+PATCH http://localhost:8080/api/v2/conversations/calls/caeee5d5-0053-459e-b179-db529255c2f7/participants/285e99d1-c459-4b43-843d-89afa4ea5791
+Content-Type: application/json
+
+{
+  "wrapup": "",
+  "state": "",
+  "recording": true,
+  "muted": true,
+  "confined": true,
+  "held": true,
+  "wrapupSkipped": true
+}
+Response:
+
+json
+{
+  "status": "success",
+  "message": "Participant wrapup updated successfully",
+  "conversationId": "caeee5d5-0053-459e-b179-db529255c2f7",
+  "participantId": "285e99d1-c459-4b43-843d-89afa4ea5791"
+}
+3. Auto-process (Recommended):
+bash
+POST http://localhost:8080/api/v2/conversations/calls/caeee5d5-0053-459e-b179-db529255c2f7/wrapup
+Content-Type: application/json
+
+{
+  "wrapup": "",
+  "state": "",
+  "recording": true,
+  "muted": true,
+  "confined": true,
+  "held": true,
+  "wrapupSkipped": true
+}
+??????????????????????????????????????????????????????????????/
