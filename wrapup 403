@@ -1,0 +1,73 @@
+import com.mypurecloud.sdk.v2.ApiClient;
+import com.mypurecloud.sdk.v2.ApiException;
+import com.mypurecloud.sdk.v2.Configuration;
+import com.mypurecloud.sdk.v2.api.ConversationsApi;
+import com.mypurecloud.sdk.v2.model.ErrorBody;import com.mypurecloud.sdk.v2.model.MediaParticipantRequest;
+
+public class ExamplepatchConversationsCallbackParticipant {
+    public static void main(String[] args) {
+        // Create ApiClient instance
+        ApiClient apiClient = ApiClient.Builder.standard()
+                .withAccessToken("your_access_token")   // or use authorizeClientCredentials(...), authorizeCodeAuthorization(...), authorizePKCE(...) or authorizeSaml2Bearer(...)
+                .withBasePath("https://api.mypurecloud.com") // expected format: https://api.[base path]
+                .build();
+        
+        // Use the ApiClient instance
+        Configuration.setDefaultApiClient(apiClient);
+
+        ConversationsApi apiInstance = new ConversationsApi();
+        String conversationId = "conversationId_example"; // String | conversationId
+String participantId = "participantId_example"; // String | participantId
+MediaParticipantRequest body = new MediaParticipantRequest(); // MediaParticipantRequest | Participant
+        try { 
+            // Update conversation participant
+            apiInstance.patchConversationsCallbackParticipant(conversationId, participantId, body);
+        } catch (ApiException e) {
+            System.err.println("Exception when calling ConversationsApi#patchConversationsCallbackParticipant");
+            e.printStackTrace();
+        }
+    }
+}
+
+
+Resource Authorization
+This resource requires authorization via Genesys Cloud OAuth. Read more about this authorization type at Platform API Client Authorization.
+
+Required Permissions
+Apps making this request must have ANY of these permissions:
+
+conversation:participant:wrapup
+conversation:call:record
+conversation:communication:disconnect
+Required Scopes
+Apps making this request must have any of these scopes:
+
+conversations
+Resource Limits
+The following limits apply to this resource. For more information, see the main article on Rate Limits and the full list of Platform API Limits.
+
+Key
+Description
+Limit
+Resource(s)
+Configurable?
+token.rate.per.minute
+The maximum number of requests per token per minute
+300
+api/v2/*
+no
+request.bytes.max
+The maximum content length of a request payload
+512000
+api/v2/*
+no
+org.app.user.rate.per.minute
+The maximum number of requests a user is allowed, per minute, with a specific Authorization Code or Token Implicit OAuth client grant
+3000
+api/v2/*
+no
+client.credentials.token.rate.per.minute
+The maximum number of requests a Client Credentials grant token is allowed per minute
+300
+api/v2/*
+yes
