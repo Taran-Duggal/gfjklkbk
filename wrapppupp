@@ -901,125 +901,428 @@ Content-Type: application/json
   }
 ]
 
-
 GET /api/v2/analytics/conversations/details?id=caeee5d5-0053-459e-b179-db529255c2f7 HTTP/1.1
 Host: api.aps1.pure.cloud
 Authorization: Bearer *******************
 Content-Type: application/json
-
-[
-  {
-    "id": "0b0f9b43-e274-4f02-82e6-319aa6eb62e8",
-    "name": "Active",
-    "description": "Active",
-    "selfUri": "/api/v2/routing/wrapupcodes/0b0f9b43-e274-4f02-82e6-319aa6eb62e8"
-  },
-  {
-    "id": "c78891c2-56f4-4c91-b167-66c695fd515f",
-    "name": "Block",
-    "description": "Block",
-    "selfUri": "/api/v2/routing/wrapupcodes/c78891c2-56f4-4c91-b167-66c695fd515f"
-  },
-  {
-    "id": "9b653de6-95e7-417d-8b71-1a206f024afc",
-    "name": "Call Transferred",
-    "description": "Call Transferred",
-    "selfUri": "/api/v2/routing/wrapupcodes/9b653de6-95e7-417d-8b71-1a206f024afc"
-  },
-  {
-    "id": "0eb01f14-1d9e-4060-a0e0-3749f3e47cd4",
-    "name": "CGRS Complaint",
-    "description": "CGRS Complaint",
-    "selfUri": "/api/v2/routing/wrapupcodes/0eb01f14-1d9e-4060-a0e0-3749f3e47cd4"
-  },
-  {
-    "id": "47b78d4b-0580-421f-8494-418a2f623f04",
-    "name": "Con-Call",
-    "description": "Con-Call",
-    "selfUri": "/api/v2/routing/wrapupcodes/47b78d4b-0580-421f-8494-418a2f623f04"
-  },
-  {
-    "id": "16b28aa1-5e8c-467a-be9e-467e78110679",
-    "name": "Connected – Language barrier",
-    "description": "Connected – Language barrier",
-    "selfUri": "/api/v2/routing/wrapupcodes/16b28aa1-5e8c-467a-be9e-467e78110679"
-  },
-  {
-    "id": "48af483c-93ed-480a-8b98-08ee24444680",
-    "name": "Connected-Call Back",
-    "description": "Connected-Call Back",
-    "selfUri": "/api/v2/routing/wrapupcodes/48af483c-93ed-480a-8b98-08ee24444680"
-  },
-  {
-    "id": "ad60fdb1-c870-480f-a030-5b5432a2c964",
-    "name": "Connected-Call dropped",
-    "description": "Connected-Call dropped",
-    "selfUri": "/api/v2/routing/wrapupcodes/ad60fdb1-c870-480f-a030-5b5432a2c964"
-  },
-  {
-    "id": "d6fa5e67-a9e3-4b90-afad-d6aecc924e91",
-    "name": "Connected-Info given",
-    "description": "Connected-Info given",
-    "selfUri": "/api/v2/routing/wrapupcodes/d6fa5e67-a9e3-4b90-afad-d6aecc924e91"
-  },
-  {
-    "id": "cac87b10-9316-41df-a19e-06246d3e365b",
-    "name": "Damaged",
-    "description": "Damaged",
-    "selfUri": "/api/v2/routing/wrapupcodes/cac87b10-9316-41df-a19e-06246d3e365b"
-  },
-  {
-    "id": "c39a9051-a272-4935-8d69-e7057480961e",
-    "name": "Denied - Authentication Failure",
-    "description": "Denied - Authentication Failure",
-    "selfUri": "/api/v2/routing/wrapupcodes/c39a9051-a272-4935-8d69-e7057480961e"
-  },
-  {
-    "id": "322570df-41af-43ea-bde8-77c9aecaa735",
-    "name": "Diverted to Branch",
-    "description": "Diverted to Branch",
-    "selfUri": "/api/v2/routing/wrapupcodes/322570df-41af-43ea-bde8-77c9aecaa735"
-  },
-  {
-    "id": "8345c025-405d-4d81-bcac-61b6a77d4c31",
-    "name": "EFRM Alert received",
-    "description": "EFRM Alert received",
-    "selfUri": "/api/v2/routing/wrapupcodes/8345c025-405d-4d81-bcac-61b6a77d4c31"
-  },
-  {
-    "id": "b9e1a4f4-a195-4bf5-ad17-5648a4259a4d",
-    "name": "Fraud call received",
-    "description": "Fraud call received",
-    "selfUri": "/api/v2/routing/wrapupcodes/b9e1a4f4-a195-4bf5-ad17-5648a4259a4d"
-  },
-  {
-    "id": "33cf04b1-73c3-43b4-80d3-0ebe1bc014e7",
-    "name": "Information Provided",
-    "description": "Information Provided",
-    "selfUri": "/api/v2/routing/wrapupcodes/33cf04b1-73c3-43b4-80d3-0ebe1bc014e7"
-  },
-  {
-    "id": "be3a5845-8f19-4cea-a05e-b5cc6d794bde",
-    "name": "Lead Taken",
-    "description": "Lead Taken",
-    "selfUri": "/api/v2/routing/wrapupcodes/be3a5845-8f19-4cea-a05e-b5cc6d794bde"
-  },
-  {
-    "id": "e44dd2b6-e2a1-4436-8ab0-187cf0e62a34",
-    "name": "Lost",
-    "description": "Lost",
-    "selfUri": "/api/v2/routing/wrapupcodes/e44dd2b6-e2a1-4436-8ab0-187cf0e62a34"
-  },
-  {
-    "id": "037c1008-902b-47be-9b8a-41b05c51a28b",
-    "name": "Mail ID/ Contact No given",
-    "description": "Mail ID/ Contact No given",
-    "selfUri": "/api/v2/routing/wrapupcodes/037c1008-902b-47be-9b8a-41b05c51a28b"
-  },
-  {
-    "id": "481faa33-9ff6-4cfb-936b-09bc7d48c0b7",
-    "name": "Unblock",
-    "description": "Unblock",
-    "selfUri": "/api/v2/routing/wrapupcodes/481faa33-9ff6-4cfb-936b-09bc7d48c0b7"
-  }
-]
+{
+  "conversations": [
+    {
+      "conversationEnd": "2025-10-06T06:09:30.072Z",
+      "conversationId": "caeee5d5-0053-459e-b179-db529255c2f7",
+      "conversationStart": "2025-09-30T13:51:43.823Z",
+      "divisionIds": [
+        "80a625c0-2f42-499b-afcf-223b5d1adbca"
+      ],
+      "mediaStatsMinConversationMos": 4.408588025801922,
+      "mediaStatsMinConversationRFactor": 92.22547912597656,
+      "originatingDirection": "inbound",
+      "participants": [
+        {
+          "externalContactId": "ec0c3ec0-dcd4-4f9e-82a7-93f7d3f3e6c9",
+          "participantId": "613a7e53-7ed8-489a-91c0-675bf62c47d5",
+          "participantName": "Unavailable",
+          "purpose": "customer",
+          "sessions": [
+            {
+              "activeSkillIds": [
+                "32b949d8-73d4-4082-9a78-ad1431fbd530"
+              ],
+              "ani": "tel:+919415367828",
+              "direction": "inbound",
+              "dnis": "tel:+912244442888",
+              "edgeId": "5875d3f0-cdd7-49a4-ba8c-208b7b39d5ee",
+              "mediaType": "voice",
+              "protocolCallId": "LU-1759240303612327-70722322@bcf.mup08.ims.mnc092.mcc404.3gppnetwork.org",
+              "provider": "Edge",
+              "recording": true,
+              "remoteNameDisplayable": "Unavailable",
+              "requestedRoutings": [
+                "Standard"
+              ],
+              "selectedAgentId": "c8bcf913-94ed-467e-aa38-bdf399a9f0ab",
+              "sessionDnis": "tel:+912244442888",
+              "sessionId": "52e28920-575f-320a-aa09-9bae65780c80",
+              "usedRouting": "Standard",
+              "mediaEndpointStats": [
+                {
+                  "codecs": [
+                    "audio/opus"
+                  ],
+                  "eventTime": "2025-09-30T13:53:19.297Z",
+                  "maxLatencyMs": 30,
+                  "minMos": 4.898458325238476,
+                  "minRFactor": 93.16526794433594,
+                  "receivedPackets": 4767
+                },
+                {
+                  "codecs": [
+                    "audio/opus"
+                  ],
+                  "eventTime": "2025-09-30T13:57:09.015Z",
+                  "maxLatencyMs": 30,
+                  "minMos": 4.898514266185183,
+                  "minRFactor": 93.16786193847656,
+                  "receivedPackets": 11485
+                },
+                {
+                  "codecs": [
+                    "audio/opus"
+                  ],
+                  "eventTime": "2025-09-30T13:57:15.319Z",
+                  "maxLatencyMs": 50,
+                  "minMos": 4.87737057321382,
+                  "minRFactor": 92.22547912597656,
+                  "receivedPackets": 314
+                },
+                {
+                  "codecs": [
+                    "audio/PCMU"
+                  ],
+                  "eventTime": "2025-09-30T13:57:15.347Z",
+                  "maxLatencyMs": 29,
+                  "minMos": 4.408588025801922,
+                  "minRFactor": 93.16400909423828,
+                  "receivedPackets": 16569
+                }
+              ],
+              "metrics": [
+                {
+                  "emitDate": "2025-09-30T13:51:44.009Z",
+                  "name": "nConnected",
+                  "value": 1
+                },
+                {
+                  "emitDate": "2025-09-30T13:57:15.268Z",
+                  "name": "tConnected",
+                  "value": 331259
+                }
+              ],
+              "segments": [
+                {
+                  "conference": false,
+                  "segmentEnd": "2025-09-30T13:51:44.009Z",
+                  "segmentStart": "2025-09-30T13:51:43.823Z",
+                  "segmentType": "system"
+                },
+                {
+                  "conference": false,
+                  "disconnectType": "peer",
+                  "queueId": "32277a2a-f99f-4073-9f03-4e58f7178b00",
+                  "requestedLanguageId": "7db5e038-e83f-4b7e-a8ba-84024be24532",
+                  "requestedRoutingSkillIds": [
+                    "32b949d8-73d4-4082-9a78-ad1431fbd530"
+                  ],
+                  "segmentEnd": "2025-09-30T13:57:15.268Z",
+                  "segmentStart": "2025-09-30T13:51:44.009Z",
+                  "segmentType": "interact"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "participantId": "d93ac503-c698-4e8c-895e-1cb8a1d8da8c",
+          "participantName": "IB_MainIVR_PROD_24082025",
+          "purpose": "ivr",
+          "sessions": [
+            {
+              "ani": "tel:+919415367828",
+              "direction": "inbound",
+              "dnis": "tel:+912244442888",
+              "edgeId": "ffda1681-73a8-46a9-b25b-226125ab0e70",
+              "mediaType": "voice",
+              "peerId": "52e28920-575f-320a-aa09-9bae65780c80",
+              "protocolCallId": "0eb7c531-0d3d-40b3-a948-6f7707cc2501",
+              "provider": "Edge",
+              "remote": "Unavailable",
+              "remoteNameDisplayable": "Mumbai, India",
+              "sessionDnis": "tel:+912244442888",
+              "sessionId": "86df18ce-843c-3637-956b-6eff28917b18",
+              "mediaEndpointStats": [
+                {
+                  "codecs": [
+                    "audio/opus"
+                  ],
+                  "eventTime": "2025-09-30T13:53:19.326Z",
+                  "maxLatencyMs": 60,
+                  "minMos": 4.898401607267013,
+                  "minRFactor": 93.16263580322266,
+                  "receivedPackets": 4811
+                }
+              ],
+              "flow": {
+                "endingLanguage": "hi-in",
+                "entryReason": "tel:+912244442888",
+                "entryType": "dnis",
+                "exitReason": "TRANSFER",
+                "flowId": "2f710b96-5d86-48dd-82f5-6b87a4b39aeb",
+                "flowName": "IB_MainIVR_PROD_24082025",
+                "flowType": "INBOUNDCALL",
+                "flowVersion": "28.0",
+                "startingLanguage": "en-us",
+                "transferTargetAddress": "32277a2a-f99f-4073-9f03-4e58f7178b00",
+                "transferTargetName": "INBOUND",
+                "transferType": "ACD"
+              },
+              "metrics": [
+                {
+                  "emitDate": "2025-09-30T13:51:44.372Z",
+                  "name": "nFlow",
+                  "value": 1
+                },
+                {
+                  "emitDate": "2025-09-30T13:53:19.217Z",
+                  "name": "tIvr",
+                  "value": 95341
+                },
+                {
+                  "emitDate": "2025-09-30T13:53:19.220Z",
+                  "name": "tFlow",
+                  "value": 94848
+                },
+                {
+                  "emitDate": "2025-09-30T13:53:19.220Z",
+                  "name": "tFlowExit",
+                  "value": 94848
+                }
+              ],
+              "segments": [
+                {
+                  "conference": false,
+                  "segmentEnd": "2025-09-30T13:51:43.876Z",
+                  "segmentStart": "2025-09-30T13:51:43.832Z",
+                  "segmentType": "system"
+                },
+                {
+                  "conference": false,
+                  "disconnectType": "transfer",
+                  "segmentEnd": "2025-09-30T13:53:19.217Z",
+                  "segmentStart": "2025-09-30T13:51:43.876Z",
+                  "segmentType": "ivr"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "participantId": "80ffdef2-01fc-4c32-93bc-fe5a997cdbed",
+          "participantName": "INBOUND",
+          "purpose": "acd",
+          "sessions": [
+            {
+              "activeSkillIds": [
+                "32b949d8-73d4-4082-9a78-ad1431fbd530"
+              ],
+              "ani": "tel:+919415367828",
+              "destinationAddresses": [
+                "sip:rahul.mishra19%40teleperformancedibs.com@localhost"
+              ],
+              "direction": "inbound",
+              "dnis": "tel:+912244442888",
+              "edgeId": "2036c99c-5c26-46cd-a0fc-63ac2d41ce41",
+              "flowInType": "ivr",
+              "mediaType": "voice",
+              "peerId": "52e28920-575f-320a-aa09-9bae65780c80",
+              "protocolCallId": "cc4fb232-9fd7-477e-9d48-6cec617b1ae8",
+              "provider": "Edge",
+              "remote": "Unavailable",
+              "remoteNameDisplayable": "INBOUND",
+              "requestedRoutings": [
+                "Standard"
+              ],
+              "selectedAgentId": "c8bcf913-94ed-467e-aa38-bdf399a9f0ab",
+              "sessionDnis": "tel:+912244442888",
+              "sessionId": "870e297e-61c1-3fc4-809f-8e329e0a88c5",
+              "usedRouting": "Standard",
+              "mediaEndpointStats": [
+                {
+                  "codecs": [
+                    "audio/opus"
+                  ],
+                  "eventTime": "2025-09-30T13:57:09.016Z",
+                  "maxLatencyMs": 30,
+                  "minMos": 4.898491461794032,
+                  "minRFactor": 93.16680145263672,
+                  "receivedPackets": 11485
+                }
+              ],
+              "flow": {
+                "flowId": "0a5fc8ff-6ebe-4a8a-b499-13113ff540cb",
+                "flowName": "Estimated Wait Time Flow",
+                "flowType": "INQUEUECALL",
+                "flowVersion": "14.0",
+                "startingLanguage": "en-us"
+              },
+              "metrics": [
+                {
+                  "emitDate": "2025-09-30T13:53:19.270Z",
+                  "name": "nOffered",
+                  "value": 1
+                },
+                {
+                  "emitDate": "2025-09-30T13:57:08.968Z",
+                  "name": "tAcd",
+                  "value": 229698
+                }
+              ],
+              "segments": [
+                {
+                  "conference": false,
+                  "queueId": "32277a2a-f99f-4073-9f03-4e58f7178b00",
+                  "requestedLanguageId": "7db5e038-e83f-4b7e-a8ba-84024be24532",
+                  "requestedRoutingSkillIds": [
+                    "32b949d8-73d4-4082-9a78-ad1431fbd530"
+                  ],
+                  "segmentEnd": "2025-09-30T13:53:19.270Z",
+                  "segmentStart": "2025-09-30T13:53:19.223Z",
+                  "segmentType": "delay"
+                },
+                {
+                  "conference": false,
+                  "disconnectType": "transfer",
+                  "queueId": "32277a2a-f99f-4073-9f03-4e58f7178b00",
+                  "requestedLanguageId": "7db5e038-e83f-4b7e-a8ba-84024be24532",
+                  "requestedRoutingSkillIds": [
+                    "32b949d8-73d4-4082-9a78-ad1431fbd530"
+                  ],
+                  "segmentEnd": "2025-09-30T13:57:08.968Z",
+                  "segmentStart": "2025-09-30T13:53:19.270Z",
+                  "segmentType": "interact",
+                  "sipResponseCodes": [
+                    410
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "participantId": "285e99d1-c459-4b43-843d-89afa4ea5791",
+          "purpose": "agent",
+          "userId": "c8bcf913-94ed-467e-aa38-bdf399a9f0ab",
+          "sessions": [
+            {
+              "activeSkillIds": [
+                "32b949d8-73d4-4082-9a78-ad1431fbd530"
+              ],
+              "ani": "tel:+919415367828",
+              "direction": "inbound",
+              "dnis": "tel:+912244442888",
+              "edgeId": "a7c03481-7927-47ff-8eb6-27086088d63a",
+              "mediaType": "voice",
+              "peerId": "52e28920-575f-320a-aa09-9bae65780c80",
+              "protocolCallId": "ec2aad47-47a2-4577-a582-83ea01a0b8bd",
+              "provider": "Edge",
+              "remote": "Unavailable",
+              "requestedRoutings": [
+                "Standard"
+              ],
+              "selectedAgentId": "c8bcf913-94ed-467e-aa38-bdf399a9f0ab",
+              "sessionDnis": "sip:684bfcc851ed393853198746+tpibgnsysorg.orgspan.com@localhost",
+              "sessionId": "52661fe7-faea-3030-96f6-1927920a838f",
+              "usedRouting": "Standard",
+              "mediaEndpointStats": [
+                {
+                  "codecs": [
+                    "audio/opus"
+                  ],
+                  "eventTime": "2025-09-30T13:57:15.314Z",
+                  "maxLatencyMs": 30,
+                  "minMos": 4.882229091038794,
+                  "minRFactor": 92.43573760986328,
+                  "receivedPackets": 263
+                },
+                {
+                  "codecs": [
+                    "audio/opus"
+                  ],
+                  "eventTime": "2025-09-30T13:57:15.343Z",
+                  "maxLatencyMs": 30,
+                  "minMos": 4.898859997014418,
+                  "minRFactor": 93.18389892578125,
+                  "receivedPackets": 320
+                }
+              ],
+              "metrics": [
+                {
+                  "emitDate": "2025-09-30T13:57:08.966Z",
+                  "name": "nOverSla",
+                  "value": 1
+                },
+                {
+                  "emitDate": "2025-09-30T13:57:08.966Z",
+                  "name": "tAlert",
+                  "value": 1157
+                },
+                {
+                  "emitDate": "2025-09-30T13:57:08.966Z",
+                  "name": "tAnswered",
+                  "value": 229698
+                },
+                {
+                  "emitDate": "2025-09-30T13:57:15.265Z",
+                  "name": "tTalk",
+                  "value": 6299
+                },
+                {
+                  "emitDate": "2025-09-30T13:57:15.265Z",
+                  "name": "tTalkComplete",
+                  "value": 6299
+                },
+                {
+                  "emitDate": "2025-09-30T13:58:15.265Z",
+                  "name": "tAcw",
+                  "value": 60000
+                },
+                {
+                  "emitDate": "2025-09-30T13:58:15.265Z",
+                  "name": "tHandle",
+                  "value": 66299
+                }
+              ],
+              "segments": [
+                {
+                  "conference": false,
+                  "queueId": "32277a2a-f99f-4073-9f03-4e58f7178b00",
+                  "requestedLanguageId": "7db5e038-e83f-4b7e-a8ba-84024be24532",
+                  "requestedRoutingSkillIds": [
+                    "32b949d8-73d4-4082-9a78-ad1431fbd530"
+                  ],
+                  "segmentEnd": "2025-09-30T13:57:08.966Z",
+                  "segmentStart": "2025-09-30T13:57:07.809Z",
+                  "segmentType": "alert"
+                },
+                {
+                  "conference": false,
+                  "disconnectType": "client",
+                  "queueId": "32277a2a-f99f-4073-9f03-4e58f7178b00",
+                  "requestedLanguageId": "7db5e038-e83f-4b7e-a8ba-84024be24532",
+                  "requestedRoutingSkillIds": [
+                    "32b949d8-73d4-4082-9a78-ad1431fbd530"
+                  ],
+                  "segmentEnd": "2025-09-30T13:57:15.265Z",
+                  "segmentStart": "2025-09-30T13:57:08.966Z",
+                  "segmentType": "interact"
+                },
+                {
+                  "conference": false,
+                  "disconnectType": "client",
+                  "queueId": "32277a2a-f99f-4073-9f03-4e58f7178b00",
+                  "requestedLanguageId": "7db5e038-e83f-4b7e-a8ba-84024be24532",
+                  "requestedRoutingSkillIds": [
+                    "32b949d8-73d4-4082-9a78-ad1431fbd530"
+                  ],
+                  "segmentEnd": "2025-10-06T06:09:30.072Z",
+                  "segmentStart": "2025-09-30T13:57:15.072Z",
+                  "segmentType": "wrapup",
+                  "wrapUpCode": "c78891c2-56f4-4c91-b167-66c695fd515f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
