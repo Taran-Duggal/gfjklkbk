@@ -1,0 +1,1025 @@
+package com.demsIB.integration.genesys.controller;
+
+import com.demsIB.integration.genesys.dto.request.WrapupRequest;
+import com.demsIB.integration.genesys.dto.response.WrapupFinalResponse;
+import com.demsIB.integration.genesys.exception.GenesysIntegrationException;
+import com.demsIB.integration.genesys.service.impl.GenesysConversationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v2/conversations/calls")
+public class GenesysConversationController {
+
+    private final GenesysConversationService genesysConversationService;
+    private final Logger logger = LoggerFactory.getLogger("GENESYS_LOGGER");
+
+    public GenesysConversationController(GenesysConversationService genesysConversationService) {
+        this.genesysConversationService = genesysConversationService;
+    }
+
+    @PatchMapping("/{conversationId}/participants/{participantId}")
+    public ResponseEntity<Map<String, String>> updateParticipantWrapup(
+            @PathVariable String conversationId,
+            @PathVariable String participantId,
+            @RequestBody WrapupFinalResponse wrapupRequest) {
+
+        try {
+            genesysConversationService.updateParticipantWrapup(conversationId, participantId, wrapupRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Participant wrapup updated successfully");
+            response.put("conversationId", conversationId);
+            response.put("participantId", participantId);
+
+            return ResponseEntity.ok(response);
+
+        }catch (GenesysIntegrationException e) {
+            logger.error("Genesys integration error: {}", e.getMessage());
+            HttpStatus status = HttpStatus.valueOf(e.getHttpStatus());
+
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            errorResponse.put("participantId", participantId);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+        return null;
+    }
+
+    @GetMapping("/{conversationId}/participants/{participantId}/wrapUpCodes")
+    public ResponseEntity<String> getWrapUpCodeId(
+            @PathVariable String conversationId,
+            @PathVariable String participantId,
+            @RequestBody WrapupFinalResponse wrapupRequest) {
+
+        try {
+//            /api/v2/conversations/callbacks/{conversationId}/participants/{participantId}/wrapupcodes
+            String response= genesysConversationService.getWrapUpCodeId(conversationId, participantId);
+
+//            Map<String, String> response = new HashMap<>();
+//            response.put("status", "success");
+//            response.put("message", "Participant wrapup updated successfully");
+//            response.put("conversationId", conversationId);
+//            response.put("participantId", participantId);
+//            response.put("wrapUpCodeId", )
+
+            return ResponseEntity.ok(response);
+
+        }catch (GenesysIntegrationException e) {
+            logger.error("Genesys integration error: {}", e.getMessage());
+            HttpStatus status = HttpStatus.valueOf(e.getHttpStatus());
+
+        } catch (Exception e) {
+//            Map<String, String> errorResponse = new HashMap<>();
+//            errorResponse.put("status", "error");
+//            errorResponse.put("message", e.getMessage());
+//            errorResponse.put("conversationId", conversationId);
+//            errorResponse.put("participantId", participantId);;
+            logger.info("error occurred");
+        }
+        return null;
+    }
+
+    @GetMapping("/{conversationId}/agent-participant")
+    public ResponseEntity<Map<String, String>> getAgentParticipantId(@PathVariable String conversationId) {
+        try {
+            String participantId = genesysConversationService.getAgentParticipantId(conversationId);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("conversationId", conversationId);
+            response.put("agentParticipantId", participantId);
+//            response.put("userId", userId);
+            response.put("status", "success");
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/{conversationId}/wrapup")
+    public ResponseEntity<Map<String, String>> processConversationWrapup(
+            @PathVariable String conversationId,
+            @RequestBody WrapupRequest wrapupRequest) {
+
+        try {
+            genesysConversationService.processWrapupForConversation(conversationId, wrapupRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Conversation wrapup processed successfully");
+            response.put("conversationId", conversationId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+}
+
+package com.demsIB.integration.genesys.controller;
+
+import com.demsIB.integration.genesys.dto.request.WrapupRequest;
+import com.demsIB.integration.genesys.dto.response.WrapupFinalResponse;
+import com.demsIB.integration.genesys.exception.GenesysIntegrationException;
+import com.demsIB.integration.genesys.service.impl.GenesysConversationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v2/conversations/calls")
+public class GenesysConversationController {
+
+    private final GenesysConversationService genesysConversationService;
+    private final Logger logger = LoggerFactory.getLogger("GENESYS_LOGGER");
+
+    public GenesysConversationController(GenesysConversationService genesysConversationService) {
+        this.genesysConversationService = genesysConversationService;
+    }
+
+    @PatchMapping("/{conversationId}/participants/{participantId}")
+    public ResponseEntity<Map<String, String>> updateParticipantWrapup(
+            @PathVariable String conversationId,
+            @PathVariable String participantId,
+            @RequestBody WrapupFinalResponse wrapupRequest) {
+
+        try {
+            genesysConversationService.updateParticipantWrapup(conversationId, participantId, wrapupRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Participant wrapup updated successfully");
+            response.put("conversationId", conversationId);
+            response.put("participantId", participantId);
+
+            return ResponseEntity.ok(response);
+
+        }catch (GenesysIntegrationException e) {
+            logger.error("Genesys integration error: {}", e.getMessage());
+            HttpStatus status = HttpStatus.valueOf(e.getHttpStatus());
+
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            errorResponse.put("participantId", participantId);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+        return null;
+    }
+
+    @PostMapping("/{conversationId}/participants/{participantId}/wrapUpCodes")
+    public ResponseEntity<WrapupFinalResponse> getWrapUpCodeId(
+            @PathVariable String conversationId,
+            @PathVariable String participantId,
+            @RequestBody WrapupRequest wrapupRequest) {
+
+        try {
+            WrapupFinalResponse response= genesysConversationService.getWrapUpCodeWithDetails(conversationId, participantId, wrapupRequest);
+            return ResponseEntity.ok(response);
+
+        }catch (GenesysIntegrationException e) {
+            logger.error("Genesys integration error: {}", e.getMessage());
+            HttpStatus status = HttpStatus.valueOf(e.getHttpStatus());
+
+        } catch (Exception e) {
+            logger.info("error occurred");
+        }
+        return null;
+    }
+
+    @GetMapping("/{conversationId}/agent-participant")
+    public ResponseEntity<Map<String, String>> getAgentParticipantId(@PathVariable String conversationId) {
+        try {
+            String participantId = genesysConversationService.getAgentParticipantId(conversationId);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("conversationId", conversationId);
+            response.put("agentParticipantId", participantId);
+//            response.put("userId", userId);
+            response.put("status", "success");
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/{conversationId}/wrapup")
+    public ResponseEntity<Map<String, String>> processConversationWrapup(
+            @PathVariable String conversationId,
+            @RequestBody WrapupRequest wrapupRequest) {
+
+        try {
+            genesysConversationService.processWrapupForConversation(conversationId, wrapupRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Conversation wrapup processed successfully");
+            response.put("conversationId", conversationId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+}
+
+package com.demsIB.integration.genesys.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@AllArgsConstructor
+@NoArgsConstructor
+@Getter
+@Setter
+public class WrapupFinalResponse {
+    private WrapupDetails wrapup;
+}
+
+package com.demsIB.integration.genesys.dto.request;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class WrapupRequest {
+    private String name;
+    private String notes;
+}
+package com.demsIB.integration.genesys.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@AllArgsConstructor
+@NoArgsConstructor
+@Getter
+@Setter
+public class WrapUpResponse {
+    private String id;
+    private String name;
+    private String description;
+    private String selfUri;
+}
+package com.demsIB.integration.genesys.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@AllArgsConstructor
+@NoArgsConstructor
+@Getter
+@Setter
+public class WrapupDetails {
+    private String name;
+    private String code;
+    private String notes;
+}
+package com.demsIB.integration.genesys.dto.response;
+
+import lombok.Data;
+
+import java.util.List;
+
+@Data
+public class ConversationDetailsResponse {
+    private List<Conversation> conversations;
+
+    @Data
+    public static class Conversation {
+        private String conversationId;
+        private List<Participant> participants;
+    }
+
+    @Data
+    public static class Participant {
+        private String participantId;
+        private String purpose;
+        private String userId;
+    }
+}
+package com.demsIB.integration.genesys.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
+public class GenesysProperties {
+
+//    @Value("${genesys.conversation.baseUrl}")
+    private String baseUrl = "https://api.aps1.pure.cloud";
+
+//    @Value("${genesys.conversation.tokenUrl}")
+    private String tokenUrl = "https://login.aps1.pure.cloud/oauth/token";
+
+    @Value("${genesys.conversation.clientId}")
+    private String clientId;
+
+    @Value("${genesys.conversation.clientSecret}")
+    private String clientSecret;
+
+    private int tokenRefreshThresholdMinutes = 60;
+    private int apiTimeoutSeconds = 30;
+    private int maxRetryAttempts = 3;
+    private int circuitBreakerFailureThreshold = 5;
+    private int circuitBreakerResetTimeoutMinutes = 2;
+
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public String getTokenUrl() {
+        return tokenUrl;
+    }
+
+    public void setTokenUrl(String tokenUrl) {
+        this.tokenUrl = tokenUrl;
+    }
+
+    public String getClientId() {
+        return clientId;
+    }
+
+    public void setClientId(String clientId) {
+        this.clientId = clientId;
+    }
+
+    public String getClientSecret() {
+        return clientSecret;
+    }
+
+    public void setClientSecret(String clientSecret) {
+        this.clientSecret = clientSecret;
+    }
+
+    public int getTokenRefreshThresholdMinutes() {
+        return tokenRefreshThresholdMinutes;
+    }
+
+    public void setTokenRefreshThresholdMinutes(int tokenRefreshThresholdMinutes) {
+        this.tokenRefreshThresholdMinutes = tokenRefreshThresholdMinutes;
+    }
+
+    public int getApiTimeoutSeconds() {
+        return apiTimeoutSeconds;
+    }
+
+    public void setApiTimeoutSeconds(int apiTimeoutSeconds) {
+        this.apiTimeoutSeconds = apiTimeoutSeconds;
+    }
+
+    public int getMaxRetryAttempts() {
+        return maxRetryAttempts;
+    }
+
+    public void setMaxRetryAttempts(int maxRetryAttempts) {
+        this.maxRetryAttempts = maxRetryAttempts;
+    }
+
+    public int getCircuitBreakerFailureThreshold() {
+        return circuitBreakerFailureThreshold;
+    }
+
+    public void setCircuitBreakerFailureThreshold(int circuitBreakerFailureThreshold) {
+        this.circuitBreakerFailureThreshold = circuitBreakerFailureThreshold;
+    }
+
+    public int getCircuitBreakerResetTimeoutMinutes() {
+        return circuitBreakerResetTimeoutMinutes;
+    }
+
+    public void setCircuitBreakerResetTimeoutMinutes(int circuitBreakerResetTimeoutMinutes) {
+        this.circuitBreakerResetTimeoutMinutes = circuitBreakerResetTimeoutMinutes;
+    }
+}
+package com.demsIB.integration.genesys.config;
+
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.Duration;
+
+@Configuration
+public class GenesysConfig {
+
+    private final GenesysProperties genesysProperties;
+
+    public GenesysConfig(GenesysProperties genesysProperties) {
+        this.genesysProperties = genesysProperties;
+    }
+
+    @Bean("genesysRestTemplate")
+    public RestTemplate genesysRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(genesysProperties.getApiTimeoutSeconds()))
+                .setReadTimeout(Duration.ofSeconds(genesysProperties.getApiTimeoutSeconds()))
+                .build();
+    }
+}
+package com.demsIB.integration.genesys.service.impl;
+
+
+import com.demsIB.integration.genesys.config.GenesysProperties;
+import com.demsIB.integration.genesys.exception.GenesysCircuitBreakerException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+@Component
+public class GenesysCircuitBreaker {
+
+    private static final Logger logger = LoggerFactory.getLogger(GenesysCircuitBreaker.class);
+
+    private final GenesysProperties genesysProperties;
+
+    private final AtomicInteger failureCount = new AtomicInteger(0);
+    private final AtomicReference<CircuitState> state = new AtomicReference<>(CircuitState.CLOSED);
+    private final AtomicReference<LocalDateTime> lastFailureTime = new AtomicReference<>();
+
+    public GenesysCircuitBreaker(GenesysProperties genesysProperties) {
+        this.genesysProperties = genesysProperties;
+    }
+
+    // executing operation with circuit breaker protection
+    public <T> T execute(CircuitBreakerOperation<T> operation) throws Exception {
+        if (isCircuitOpen()) {
+            throw new GenesysCircuitBreakerException("Genesys API circuit breaker is open. Service temporarily unavailable.");
+        }
+
+        try {
+            T result = operation.execute();
+            onSuccess();
+            return result;
+        } catch (Exception e) {
+            onFailure(e);
+            throw e;
+        }
+    }
+
+    // checking if circuit breaker allows requests
+    private boolean isCircuitOpen() {
+        CircuitState currentState = state.get();
+
+        if (currentState == CircuitState.OPEN) {
+            LocalDateTime lastFailure = lastFailureTime.get();
+            if (lastFailure != null) {
+                LocalDateTime resetTime = lastFailure.plusMinutes(genesysProperties.getCircuitBreakerResetTimeoutMinutes());
+                if (LocalDateTime.now().isAfter(resetTime)) {
+                    // trying half-open state
+                    state.compareAndSet(CircuitState.OPEN, CircuitState.HALF_OPEN);
+                    logger.info("Circuit breaker moved to HALF_OPEN state");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    // handling successful operation
+    private void onSuccess() {
+        CircuitState currentState = state.get();
+
+        if (currentState == CircuitState.HALF_OPEN) {
+            // resetting circuit breaker
+            state.set(CircuitState.CLOSED);
+            failureCount.set(0);
+            lastFailureTime.set(null);
+            logger.info("Circuit breaker reset to CLOSED state after successful operation");
+        } else if (currentState == CircuitState.CLOSED) {
+            // resetting failure count on success
+            failureCount.set(0);
+        }
+    }
+
+    // handling failed operation
+    private void onFailure(Exception e) {
+        int failures = failureCount.incrementAndGet();
+        lastFailureTime.set(LocalDateTime.now());
+
+        CircuitState currentState = state.get();
+
+        if (currentState == CircuitState.HALF_OPEN) {
+            // failing in half-open state, back to open
+            state.set(CircuitState.OPEN);
+            logger.warn("Circuit breaker opened due to failure in HALF_OPEN state: {}", e.getMessage());
+        } else if (currentState == CircuitState.CLOSED && failures >= genesysProperties.getCircuitBreakerFailureThreshold()) {
+            // Too many failures, opening circuit
+            state.set(CircuitState.OPEN);
+            logger.error("Circuit breaker opened after {} failures. Last error: {}", failures, e.getMessage());
+        }
+
+        logger.debug("Genesys API failure recorded. Count: {}, State: {}", failures, state.get());
+    }
+
+    // getting current circuit breaker status
+    public CircuitBreakerStatus getStatus() {
+        return new CircuitBreakerStatus(
+                state.get(),
+                failureCount.get(),
+                lastFailureTime.get()
+        );
+    }
+
+    // manually resetting circuit breaker (for admin operations)
+    public void reset() {
+        state.set(CircuitState.CLOSED);
+        failureCount.set(0);
+        lastFailureTime.set(null);
+        logger.info("Circuit breaker manually reset");
+    }
+
+    // functional interface for circuit breaker operations
+    @FunctionalInterface
+    public interface CircuitBreakerOperation<T> {
+        T execute() throws Exception;
+    }
+
+    // circuit states
+    public enum CircuitState {
+        CLOSED,    // normal operation
+        OPEN,      // blocking requests
+        HALF_OPEN  // testing if service recovered
+    }
+
+    // circuit breaker status for monitoring
+    public static class CircuitBreakerStatus {
+        private final CircuitState state;
+        private final int failureCount;
+        private final LocalDateTime lastFailureTime;
+
+        public CircuitBreakerStatus(CircuitState state, int failureCount, LocalDateTime lastFailureTime) {
+            this.state = state;
+            this.failureCount = failureCount;
+            this.lastFailureTime = lastFailureTime;
+        }
+
+        public CircuitState getState() { return state; }
+        public int getFailureCount() { return failureCount; }
+        public LocalDateTime getLastFailureTime() { return lastFailureTime; }
+
+        public boolean isOperational() { return state != CircuitState.OPEN; }
+    }
+}
+package com.demsIB.integration.genesys.service.impl;
+
+
+import com.demsIB.integration.genesys.config.GenesysProperties;
+import com.demsIB.integration.genesys.exception.GenesysAuthenticationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+public class GenesysAuthService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GenesysAuthService.class);
+
+    private final RestTemplate restTemplate;
+    private final GenesysProperties genesysProperties;
+
+    // caching for access tokens per agent (in production, we should consider Redis for clustering)
+    private final Map<String, TokenInfo> tokenCache = new ConcurrentHashMap<>();
+
+    public GenesysAuthService(@Qualifier("genesysRestTemplate") RestTemplate restTemplate,
+                              GenesysProperties genesysProperties) {
+        this.restTemplate = restTemplate;
+        this.genesysProperties = genesysProperties;
+    }
+
+    // getting access token for system-level API calls (using client credentials)
+    public String getSystemAccessToken() {
+        final String SYSTEM_KEY = "SYSTEM";
+
+        TokenInfo tokenInfo = tokenCache.get(SYSTEM_KEY);
+
+        if (tokenInfo == null || isTokenExpiring(tokenInfo)) {
+            logger.debug("Fetching new system access token");
+            tokenInfo = fetchNewToken();
+            tokenCache.put(SYSTEM_KEY, tokenInfo);
+            logger.info("System access token refreshed, expires at: {}", tokenInfo.getExpiryTime());
+        }
+
+        return tokenInfo.getAccessToken();
+    }
+
+    // getting access token for specific agent (future SAML integration)
+    public String getAgentAccessToken(String agentId) {
+        // For now, use system token. Later implement per-agent tokens
+        return getSystemAccessToken();
+    }
+
+    // checking if token needs refresh (1 hour before expiry)
+    private boolean isTokenExpiring(TokenInfo tokenInfo) {
+        LocalDateTime refreshThreshold = tokenInfo.getExpiryTime()
+                .minusMinutes(genesysProperties.getTokenRefreshThresholdMinutes());
+        return LocalDateTime.now().isAfter(refreshThreshold);
+    }
+
+    // fetching new access token from Genesys OAuth endpoint
+    private TokenInfo fetchNewToken() {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+            body.add("grant_type", "client_credentials");
+            body.add("client_id", genesysProperties.getClientId());
+            body.add("client_secret", genesysProperties.getClientSecret());
+
+            HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(body, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    genesysProperties.getTokenUrl(),
+                    HttpMethod.POST,
+                    requestEntity,
+                    Map.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                String accessToken = (String) responseBody.get("access_token");
+                Integer expiresIn = (Integer) responseBody.get("expires_in");
+
+                if (accessToken == null) {
+                    throw new GenesysAuthenticationException("Access token not found in response");
+                }
+
+                // Calculate expiry time (default 24 hours if not provided)
+                LocalDateTime expiryTime = LocalDateTime.now()
+                        .plusSeconds(expiresIn != null ? expiresIn : 86400);
+
+                return new TokenInfo(accessToken, expiryTime);
+            } else {
+                throw new GenesysAuthenticationException("Failed to get access token: " + response.getStatusCode());
+            }
+
+        } catch (Exception e) {
+            logger.error("Error fetching Genesys access token", e);
+            throw new GenesysAuthenticationException("Failed to authenticate with Genesys", e);
+        }
+    }
+
+    // invalidate token cache (useful for logout or token issues)
+    public void invalidateToken(String agentId) {
+        if (agentId == null) {
+            tokenCache.remove("SYSTEM");
+        } else {
+            tokenCache.remove(agentId);
+        }
+        logger.info("Token invalidated for: {}", agentId != null ? agentId : "SYSTEM");
+    }
+
+    // clearing all cached tokens
+    public void clearAllTokens() {
+        tokenCache.clear();
+        logger.info("All cached tokens cleared");
+    }
+
+    // token information holder
+    private static class TokenInfo {
+        private final String accessToken;
+        private final LocalDateTime expiryTime;
+
+        public TokenInfo(String accessToken, LocalDateTime expiryTime) {
+            this.accessToken = accessToken;
+            this.expiryTime = expiryTime;
+        }
+
+        public String getAccessToken() {
+            return accessToken;
+        }
+
+        public LocalDateTime getExpiryTime() {
+            return expiryTime;
+        }
+    }
+}
+
+
+PATCH /api/v2/conversations/callbacks/caeee5d5-0053-459e-b179-db529255c2f7/participants/285e99d1-c459-4b43-843d-89afa4ea5791 HTTP/1.1
+Host: api.aps1.pure.cloud
+Authorization: Bearer *******************
+Content-Type: application/json
+
+{"wrapup":{"name":"Block","code":"c78891c2-56f4-4c91-b167-66c695fd515f","notes":"testing"}}
+
+
+GET /api/v2/conversations/callbacks/caeee5d5-0053-459e-b179-db529255c2f7/participants/285e99d1-c459-4b43-843d-89afa4ea5791/wrapupcodes HTTP/1.1
+Host: api.aps1.pure.cloud
+Authorization: Bearer *******************
+Content-Type: application/json
+
+[
+  {
+    "id": "0b0f9b43-e274-4f02-82e6-319aa6eb62e8",
+    "name": "Active",
+    "description": "Active",
+    "selfUri": "/api/v2/routing/wrapupcodes/0b0f9b43-e274-4f02-82e6-319aa6eb62e8"
+  },
+  {
+    "id": "c78891c2-56f4-4c91-b167-66c695fd515f",
+    "name": "Block",
+    "description": "Block",
+    "selfUri": "/api/v2/routing/wrapupcodes/c78891c2-56f4-4c91-b167-66c695fd515f"
+  },
+  {
+    "id": "9b653de6-95e7-417d-8b71-1a206f024afc",
+    "name": "Call Transferred",
+    "description": "Call Transferred",
+    "selfUri": "/api/v2/routing/wrapupcodes/9b653de6-95e7-417d-8b71-1a206f024afc"
+  },
+  {
+    "id": "0eb01f14-1d9e-4060-a0e0-3749f3e47cd4",
+    "name": "CGRS Complaint",
+    "description": "CGRS Complaint",
+    "selfUri": "/api/v2/routing/wrapupcodes/0eb01f14-1d9e-4060-a0e0-3749f3e47cd4"
+  },
+  {
+    "id": "47b78d4b-0580-421f-8494-418a2f623f04",
+    "name": "Con-Call",
+    "description": "Con-Call",
+    "selfUri": "/api/v2/routing/wrapupcodes/47b78d4b-0580-421f-8494-418a2f623f04"
+  },
+  {
+    "id": "16b28aa1-5e8c-467a-be9e-467e78110679",
+    "name": "Connected – Language barrier",
+    "description": "Connected – Language barrier",
+    "selfUri": "/api/v2/routing/wrapupcodes/16b28aa1-5e8c-467a-be9e-467e78110679"
+  },
+  {
+    "id": "48af483c-93ed-480a-8b98-08ee24444680",
+    "name": "Connected-Call Back",
+    "description": "Connected-Call Back",
+    "selfUri": "/api/v2/routing/wrapupcodes/48af483c-93ed-480a-8b98-08ee24444680"
+  },
+  {
+    "id": "ad60fdb1-c870-480f-a030-5b5432a2c964",
+    "name": "Connected-Call dropped",
+    "description": "Connected-Call dropped",
+    "selfUri": "/api/v2/routing/wrapupcodes/ad60fdb1-c870-480f-a030-5b5432a2c964"
+  },
+  {
+    "id": "d6fa5e67-a9e3-4b90-afad-d6aecc924e91",
+    "name": "Connected-Info given",
+    "description": "Connected-Info given",
+    "selfUri": "/api/v2/routing/wrapupcodes/d6fa5e67-a9e3-4b90-afad-d6aecc924e91"
+  },
+  {
+    "id": "cac87b10-9316-41df-a19e-06246d3e365b",
+    "name": "Damaged",
+    "description": "Damaged",
+    "selfUri": "/api/v2/routing/wrapupcodes/cac87b10-9316-41df-a19e-06246d3e365b"
+  },
+  {
+    "id": "c39a9051-a272-4935-8d69-e7057480961e",
+    "name": "Denied - Authentication Failure",
+    "description": "Denied - Authentication Failure",
+    "selfUri": "/api/v2/routing/wrapupcodes/c39a9051-a272-4935-8d69-e7057480961e"
+  },
+  {
+    "id": "322570df-41af-43ea-bde8-77c9aecaa735",
+    "name": "Diverted to Branch",
+    "description": "Diverted to Branch",
+    "selfUri": "/api/v2/routing/wrapupcodes/322570df-41af-43ea-bde8-77c9aecaa735"
+  },
+  {
+    "id": "8345c025-405d-4d81-bcac-61b6a77d4c31",
+    "name": "EFRM Alert received",
+    "description": "EFRM Alert received",
+    "selfUri": "/api/v2/routing/wrapupcodes/8345c025-405d-4d81-bcac-61b6a77d4c31"
+  },
+  {
+    "id": "b9e1a4f4-a195-4bf5-ad17-5648a4259a4d",
+    "name": "Fraud call received",
+    "description": "Fraud call received",
+    "selfUri": "/api/v2/routing/wrapupcodes/b9e1a4f4-a195-4bf5-ad17-5648a4259a4d"
+  },
+  {
+    "id": "33cf04b1-73c3-43b4-80d3-0ebe1bc014e7",
+    "name": "Information Provided",
+    "description": "Information Provided",
+    "selfUri": "/api/v2/routing/wrapupcodes/33cf04b1-73c3-43b4-80d3-0ebe1bc014e7"
+  },
+  {
+    "id": "be3a5845-8f19-4cea-a05e-b5cc6d794bde",
+    "name": "Lead Taken",
+    "description": "Lead Taken",
+    "selfUri": "/api/v2/routing/wrapupcodes/be3a5845-8f19-4cea-a05e-b5cc6d794bde"
+  },
+  {
+    "id": "e44dd2b6-e2a1-4436-8ab0-187cf0e62a34",
+    "name": "Lost",
+    "description": "Lost",
+    "selfUri": "/api/v2/routing/wrapupcodes/e44dd2b6-e2a1-4436-8ab0-187cf0e62a34"
+  },
+  {
+    "id": "037c1008-902b-47be-9b8a-41b05c51a28b",
+    "name": "Mail ID/ Contact No given",
+    "description": "Mail ID/ Contact No given",
+    "selfUri": "/api/v2/routing/wrapupcodes/037c1008-902b-47be-9b8a-41b05c51a28b"
+  },
+  {
+    "id": "481faa33-9ff6-4cfb-936b-09bc7d48c0b7",
+    "name": "Unblock",
+    "description": "Unblock",
+    "selfUri": "/api/v2/routing/wrapupcodes/481faa33-9ff6-4cfb-936b-09bc7d48c0b7"
+  }
+]
+
+
+GET /api/v2/analytics/conversations/details?id=caeee5d5-0053-459e-b179-db529255c2f7 HTTP/1.1
+Host: api.aps1.pure.cloud
+Authorization: Bearer *******************
+Content-Type: application/json
+
+[
+  {
+    "id": "0b0f9b43-e274-4f02-82e6-319aa6eb62e8",
+    "name": "Active",
+    "description": "Active",
+    "selfUri": "/api/v2/routing/wrapupcodes/0b0f9b43-e274-4f02-82e6-319aa6eb62e8"
+  },
+  {
+    "id": "c78891c2-56f4-4c91-b167-66c695fd515f",
+    "name": "Block",
+    "description": "Block",
+    "selfUri": "/api/v2/routing/wrapupcodes/c78891c2-56f4-4c91-b167-66c695fd515f"
+  },
+  {
+    "id": "9b653de6-95e7-417d-8b71-1a206f024afc",
+    "name": "Call Transferred",
+    "description": "Call Transferred",
+    "selfUri": "/api/v2/routing/wrapupcodes/9b653de6-95e7-417d-8b71-1a206f024afc"
+  },
+  {
+    "id": "0eb01f14-1d9e-4060-a0e0-3749f3e47cd4",
+    "name": "CGRS Complaint",
+    "description": "CGRS Complaint",
+    "selfUri": "/api/v2/routing/wrapupcodes/0eb01f14-1d9e-4060-a0e0-3749f3e47cd4"
+  },
+  {
+    "id": "47b78d4b-0580-421f-8494-418a2f623f04",
+    "name": "Con-Call",
+    "description": "Con-Call",
+    "selfUri": "/api/v2/routing/wrapupcodes/47b78d4b-0580-421f-8494-418a2f623f04"
+  },
+  {
+    "id": "16b28aa1-5e8c-467a-be9e-467e78110679",
+    "name": "Connected – Language barrier",
+    "description": "Connected – Language barrier",
+    "selfUri": "/api/v2/routing/wrapupcodes/16b28aa1-5e8c-467a-be9e-467e78110679"
+  },
+  {
+    "id": "48af483c-93ed-480a-8b98-08ee24444680",
+    "name": "Connected-Call Back",
+    "description": "Connected-Call Back",
+    "selfUri": "/api/v2/routing/wrapupcodes/48af483c-93ed-480a-8b98-08ee24444680"
+  },
+  {
+    "id": "ad60fdb1-c870-480f-a030-5b5432a2c964",
+    "name": "Connected-Call dropped",
+    "description": "Connected-Call dropped",
+    "selfUri": "/api/v2/routing/wrapupcodes/ad60fdb1-c870-480f-a030-5b5432a2c964"
+  },
+  {
+    "id": "d6fa5e67-a9e3-4b90-afad-d6aecc924e91",
+    "name": "Connected-Info given",
+    "description": "Connected-Info given",
+    "selfUri": "/api/v2/routing/wrapupcodes/d6fa5e67-a9e3-4b90-afad-d6aecc924e91"
+  },
+  {
+    "id": "cac87b10-9316-41df-a19e-06246d3e365b",
+    "name": "Damaged",
+    "description": "Damaged",
+    "selfUri": "/api/v2/routing/wrapupcodes/cac87b10-9316-41df-a19e-06246d3e365b"
+  },
+  {
+    "id": "c39a9051-a272-4935-8d69-e7057480961e",
+    "name": "Denied - Authentication Failure",
+    "description": "Denied - Authentication Failure",
+    "selfUri": "/api/v2/routing/wrapupcodes/c39a9051-a272-4935-8d69-e7057480961e"
+  },
+  {
+    "id": "322570df-41af-43ea-bde8-77c9aecaa735",
+    "name": "Diverted to Branch",
+    "description": "Diverted to Branch",
+    "selfUri": "/api/v2/routing/wrapupcodes/322570df-41af-43ea-bde8-77c9aecaa735"
+  },
+  {
+    "id": "8345c025-405d-4d81-bcac-61b6a77d4c31",
+    "name": "EFRM Alert received",
+    "description": "EFRM Alert received",
+    "selfUri": "/api/v2/routing/wrapupcodes/8345c025-405d-4d81-bcac-61b6a77d4c31"
+  },
+  {
+    "id": "b9e1a4f4-a195-4bf5-ad17-5648a4259a4d",
+    "name": "Fraud call received",
+    "description": "Fraud call received",
+    "selfUri": "/api/v2/routing/wrapupcodes/b9e1a4f4-a195-4bf5-ad17-5648a4259a4d"
+  },
+  {
+    "id": "33cf04b1-73c3-43b4-80d3-0ebe1bc014e7",
+    "name": "Information Provided",
+    "description": "Information Provided",
+    "selfUri": "/api/v2/routing/wrapupcodes/33cf04b1-73c3-43b4-80d3-0ebe1bc014e7"
+  },
+  {
+    "id": "be3a5845-8f19-4cea-a05e-b5cc6d794bde",
+    "name": "Lead Taken",
+    "description": "Lead Taken",
+    "selfUri": "/api/v2/routing/wrapupcodes/be3a5845-8f19-4cea-a05e-b5cc6d794bde"
+  },
+  {
+    "id": "e44dd2b6-e2a1-4436-8ab0-187cf0e62a34",
+    "name": "Lost",
+    "description": "Lost",
+    "selfUri": "/api/v2/routing/wrapupcodes/e44dd2b6-e2a1-4436-8ab0-187cf0e62a34"
+  },
+  {
+    "id": "037c1008-902b-47be-9b8a-41b05c51a28b",
+    "name": "Mail ID/ Contact No given",
+    "description": "Mail ID/ Contact No given",
+    "selfUri": "/api/v2/routing/wrapupcodes/037c1008-902b-47be-9b8a-41b05c51a28b"
+  },
+  {
+    "id": "481faa33-9ff6-4cfb-936b-09bc7d48c0b7",
+    "name": "Unblock",
+    "description": "Unblock",
+    "selfUri": "/api/v2/routing/wrapupcodes/481faa33-9ff6-4cfb-936b-09bc7d48c0b7"
+  }
+]
