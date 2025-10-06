@@ -1,0 +1,447 @@
+package com.demsIB.integration.genesys.service.impl;
+
+import com.demsIB.integration.genesys.config.GenesysProperties;
+import com.demsIB.integration.genesys.exception.GenesysAuthenticationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+
+@Service
+public class GenesysAuthService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GenesysAuthService.class);
+
+    private final RestTemplate restTemplate;
+    private final GenesysProperties genesysProperties;
+    
+    private final Map<String, TokenInfo> tokenCache = new ConcurrentHashMap<>();
+    private final ReentrantLock tokenLock = new ReentrantLock();
+    
+    // Use a single system token for all operations to maintain consistency
+    private static final String SYSTEM_TOKEN_KEY = "SYSTEM";
+
+    public GenesysAuthService(@Qualifier("genesysRestTemplate") RestTemplate restTemplate,
+                              GenesysProperties genesysProperties) {
+        this.restTemplate = restTemplate;
+        this.genesysProperties = genesysProperties;
+    }
+
+    // Get consistent system access token for all operations
+    public String getConsistentSystemToken() {
+        tokenLock.lock();
+        try {
+            TokenInfo tokenInfo = tokenCache.get(SYSTEM_TOKEN_KEY);
+            
+            if (tokenInfo == null || isTokenExpiredOrExpiring(tokenInfo)) {
+                logger.info("Refreshing system access token");
+                tokenInfo = fetchNewToken();
+                tokenCache.put(SYSTEM_TOKEN_KEY, tokenInfo);
+                logger.info("New system access token acquired, expires at: {}", tokenInfo.getExpiryTime());
+            } else {
+                logger.debug("Using cached system access token");
+            }
+            
+            return tokenInfo.getAccessToken();
+            
+        } finally {
+            tokenLock.unlock();
+        }
+    }
+
+    // Force refresh token if needed (for retry scenarios)
+    public String refreshSystemToken() {
+        tokenLock.lock();
+        try {
+            logger.info("Forcing system token refresh");
+            TokenInfo tokenInfo = fetchNewToken();
+            tokenCache.put(SYSTEM_TOKEN_KEY, tokenInfo);
+            logger.info("System token force refreshed, expires at: {}", tokenInfo.getExpiryTime());
+            return tokenInfo.getAccessToken();
+        } finally {
+            tokenLock.unlock();
+        }
+    }
+
+    private boolean isTokenExpiredOrExpiring(TokenInfo tokenInfo) {
+        LocalDateTime refreshThreshold = tokenInfo.getExpiryTime()
+                .minusMinutes(genesysProperties.getTokenRefreshThresholdMinutes());
+        return LocalDateTime.now().isAfter(refreshThreshold);
+    }
+
+    private TokenInfo fetchNewToken() {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+            body.add("grant_type", "client_credentials");
+            body.add("client_id", genesysProperties.getClientId());
+            body.add("client_secret", genesysProperties.getClientSecret());
+
+            HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(body, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    genesysProperties.getTokenUrl(),
+                    HttpMethod.POST,
+                    requestEntity,
+                    Map.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                String accessToken = (String) responseBody.get("access_token");
+                Integer expiresIn = (Integer) responseBody.get("expires_in");
+                String tokenType = (String) responseBody.get("token_type");
+
+                if (accessToken == null) {
+                    throw new GenesysAuthenticationException("Access token not found in response");
+                }
+
+                if (!"bearer".equalsIgnoreCase(tokenType)) {
+                    logger.warn("Unexpected token type: {}", tokenType);
+                }
+
+                LocalDateTime expiryTime = LocalDateTime.now()
+                        .plusSeconds(expiresIn != null ? expiresIn : 86400);
+
+                return new TokenInfo(accessToken, expiryTime);
+            } else {
+                throw new GenesysAuthenticationException("Failed to get access token. Status: " + response.getStatusCode());
+            }
+
+        } catch (Exception e) {
+            logger.error("Critical error fetching Genesys access token", e);
+            throw new GenesysAuthenticationException("Failed to authenticate with Genesys API", e);
+        }
+    }
+
+    public void invalidateSystemToken() {
+        tokenLock.lock();
+        try {
+            tokenCache.remove(SYSTEM_TOKEN_KEY);
+            logger.info("System token invalidated");
+        } finally {
+            tokenLock.unlock();
+        }
+    }
+
+    public boolean isTokenValid() {
+        TokenInfo tokenInfo = tokenCache.get(SYSTEM_TOKEN_KEY);
+        return tokenInfo != null && LocalDateTime.now().isBefore(tokenInfo.getExpiryTime());
+    }
+
+    private static class TokenInfo {
+        private final String accessToken;
+        private final LocalDateTime expiryTime;
+
+        public TokenInfo(String accessToken, LocalDateTime expiryTime) {
+            this.accessToken = accessToken;
+            this.expiryTime = expiryTime;
+        }
+
+        public String getAccessToken() { return accessToken; }
+        public LocalDateTime getExpiryTime() { return expiryTime; }
+    }
+}
+
+
+
+package com.demsIB.integration.genesys.service.impl;
+
+import com.demsIB.integration.genesys.config.GenesysProperties;
+import com.demsIB.integration.genesys.dto.request.WrapupRequest;
+import com.demsIB.integration.genesys.dto.response.*;
+import com.demsIB.integration.genesys.exception.GenesysIntegrationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+
+@Service
+public class GenesysConversationService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GenesysConversationService.class);
+
+    private final RestTemplate restTemplate;
+    private final GenesysProperties genesysProperties;
+    private final GenesysAuthService genesysAuthService;
+    private final GenesysCircuitBreaker circuitBreaker;
+
+    public GenesysConversationService(@Qualifier("genesysRestTemplate") RestTemplate restTemplate,
+                                     GenesysProperties genesysProperties,
+                                     GenesysAuthService genesysAuthService,
+                                     GenesysCircuitBreaker circuitBreaker) {
+        this.restTemplate = restTemplate;
+        this.genesysProperties = genesysProperties;
+        this.genesysAuthService = genesysAuthService;
+        this.circuitBreaker = circuitBreaker;
+    }
+
+    // Main method with token consistency and retry logic
+    public void executeCompleteWrapupFlow(String conversationId, WrapupRequest wrapupRequest) throws Exception {
+        logger.info("Starting complete wrapup flow for conversation: {}", conversationId);
+        
+        // Use single token for entire flow
+        String consistentToken = genesysAuthService.getConsistentSystemToken();
+        
+        // Step 1: Get agent participant info
+        Map<String, String> agentInfo = getAgentParticipantInfoWithToken(conversationId, consistentToken);
+        String participantId = agentInfo.get("participantId");
+        String userId = agentInfo.get("userId");
+        
+        logger.info("Found agent participant - ID: {}, User: {}", participantId, userId);
+        
+        // Step 2: Get wrap-up codes and find the matching code ID
+        String wrapupCodeId = findWrapupCodeIdWithToken(conversationId, participantId, wrapupRequest.getName(), consistentToken);
+        
+        // Step 3: Update participant wrap-up with same token
+        updateParticipantWrapupWithToken(conversationId, participantId, wrapupRequest, wrapupCodeId, consistentToken);
+        
+        logger.info("Complete wrapup flow finished successfully for conversation: {}", conversationId);
+    }
+
+    // Get agent participant info with specific token
+    private Map<String, String> getAgentParticipantInfoWithToken(String conversationId, String accessToken) throws Exception {
+        return circuitBreaker.execute(() -> {
+            return executeWithTokenRetry(() -> {
+                HttpHeaders headers = createHeadersWithToken(accessToken);
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+                
+                String url = genesysProperties.getBaseUrl() + 
+                    "/api/v2/analytics/conversations/details?id=" + conversationId;
+                
+                logger.debug("Fetching conversation details from: {}", url);
+                
+                ResponseEntity<ConversationDetailsResponse> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, ConversationDetailsResponse.class);
+                
+                return processConversationDetailsResponse(response, conversationId);
+            }, accessToken, "get conversation details");
+        });
+    }
+
+    // Find wrap-up code ID with specific token
+    private String findWrapupCodeIdWithToken(String conversationId, String participantId, 
+                                           String wrapupName, String accessToken) throws Exception {
+        List<WrapUpResponse> wrapupCodes = getWrapUpCodesWithToken(conversationId, participantId, accessToken);
+        
+        return wrapupCodes.stream()
+            .filter(code -> wrapupName.equalsIgnoreCase(code.getName()))
+            .findFirst()
+            .map(WrapUpResponse::getId)
+            .orElseThrow(() -> new GenesysIntegrationException(
+                "Wrap-up code not found for name: " + wrapupName, HttpStatus.NOT_FOUND.value()));
+    }
+
+    // Get wrap-up codes with specific token
+    private List<WrapUpResponse> getWrapUpCodesWithToken(String conversationId, String participantId, String accessToken) throws Exception {
+        return circuitBreaker.execute(() -> {
+            return executeWithTokenRetry(() -> {
+                HttpHeaders headers = createHeadersWithToken(accessToken);
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+                
+                String url = genesysProperties.getBaseUrl() + 
+                    "/api/v2/conversations/callbacks/" + conversationId + 
+                    "/participants/" + participantId + "/wrapupcodes";
+                
+                logger.debug("Fetching wrap-up codes from: {}", url);
+                
+                ResponseEntity<WrapUpResponse[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, WrapUpResponse[].class);
+                
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    List<WrapUpResponse> codes = Arrays.asList(response.getBody());
+                    logger.debug("Found {} wrap-up codes", codes.size());
+                    return codes;
+                }
+                
+                throw new GenesysIntegrationException("Failed to get wrap-up codes for participant: " + participantId, 
+                                                    response.getStatusCodeValue());
+            }, accessToken, "get wrap-up codes");
+        });
+    }
+
+    // Update participant wrap-up with specific token
+    private void updateParticipantWrapupWithToken(String conversationId, String participantId, 
+                                                 WrapupRequest wrapupRequest, String wrapupCodeId, 
+                                                 String accessToken) throws Exception {
+        circuitBreaker.execute(() -> {
+            return executeWithTokenRetry(() -> {
+                WrapupFinalResponse wrapupFinalResponse = createWrapupFinalResponse(wrapupRequest, wrapupCodeId);
+                
+                HttpHeaders headers = createHeadersWithToken(accessToken);
+                HttpEntity<WrapupFinalResponse> entity = new HttpEntity<>(wrapupFinalResponse, headers);
+                
+                String url = genesysProperties.getBaseUrl() + 
+                    "/api/v2/conversations/callbacks/" + conversationId + 
+                    "/participants/" + participantId;
+                
+                logger.debug("Updating participant wrap-up at: {}", url);
+                
+                ResponseEntity<String> response = restTemplate.exchange(
+                    url, HttpMethod.PATCH, entity, String.class);
+                
+                if (!response.getStatusCode().is2xxSuccessful()) {
+                    throw new GenesysIntegrationException("Failed to update participant wrap-up: " + 
+                                                        response.getStatusCode(), 
+                                                        response.getStatusCodeValue());
+                }
+                
+                logger.info("Successfully updated wrap-up for participant: {} in conversation: {}", 
+                           participantId, conversationId);
+                return null;
+            }, accessToken, "update participant wrap-up");
+        });
+    }
+
+    // Retry logic with token refresh on authentication errors
+    private <T> T executeWithTokenRetry(GenesysApiOperation<T> operation, String currentToken, String operationName) throws Exception {
+        try {
+            return operation.execute();
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED || e.getStatusCode() == HttpStatus.FORBIDDEN) {
+                logger.warn("Authentication error during {}: {}. Refreshing token and retrying...", 
+                           operationName, e.getMessage());
+                
+                // Refresh token and retry once
+                String newToken = genesysAuthService.refreshSystemToken();
+                return operation.execute(); // Retry with new token
+            }
+            throw e;
+        }
+    }
+
+    // Helper methods
+    private HttpHeaders createHeadersWithToken(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
+    }
+
+    private Map<String, String> processConversationDetailsResponse(
+            ResponseEntity<ConversationDetailsResponse> response, String conversationId) {
+        
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            ConversationDetailsResponse conversationDetails = response.getBody();
+            
+            if (conversationDetails.getConversations() != null && 
+                !conversationDetails.getConversations().isEmpty()) {
+                
+                for (ConversationDetailsResponse.Conversation conversation : 
+                     conversationDetails.getConversations()) {
+                    
+                    if (conversationId.equals(conversation.getConversationId()) && 
+                        conversation.getParticipants() != null) {
+                        
+                        for (ConversationDetailsResponse.Participant participant : 
+                             conversation.getParticipants()) {
+                            
+                            if ("agent".equalsIgnoreCase(participant.getPurpose())) {
+                                Map<String, String> agentInfo = new HashMap<>();
+                                agentInfo.put("participantId", participant.getParticipantId());
+                                agentInfo.put("userId", participant.getUserId());
+                                return agentInfo;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        throw new GenesysIntegrationException("Agent participant not found for conversation: " + conversationId, 
+                                            HttpStatus.NOT_FOUND.value());
+    }
+
+    private WrapupFinalResponse createWrapupFinalResponse(WrapupRequest wrapupRequest, String wrapupCodeId) {
+        WrapupFinalResponse wrapupFinalResponse = new WrapupFinalResponse();
+        WrapupDetails wrapupDetails = new WrapupDetails();
+        wrapupDetails.setName(wrapupRequest.getName());
+        wrapupDetails.setCode(wrapupCodeId);
+        wrapupDetails.setNotes(wrapupRequest.getNotes());
+        wrapupFinalResponse.setWrapup(wrapupDetails);
+        return wrapupFinalResponse;
+    }
+
+    // Existing public methods for individual operations
+    public Map<String, String> getAgentParticipantInfo(String conversationId) throws Exception {
+        String token = genesysAuthService.getConsistentSystemToken();
+        return getAgentParticipantInfoWithToken(conversationId, token);
+    }
+
+    public List<WrapUpResponse> getWrapUpCodes(String conversationId, String participantId) throws Exception {
+        String token = genesysAuthService.getConsistentSystemToken();
+        return getWrapUpCodesWithToken(conversationId, participantId, token);
+    }
+
+    public void updateParticipantWrapup(String conversationId, String participantId, 
+                                       WrapupFinalResponse wrapupRequest) throws Exception {
+        String token = genesysAuthService.getConsistentSystemToken();
+        // Extract wrapup name and notes from the request to use the consistent flow
+        WrapupRequest simpleRequest = new WrapupRequest();
+        simpleRequest.setName(wrapupRequest.getWrapup().getName());
+        simpleRequest.setNotes(wrapupRequest.getWrapup().getNotes());
+        
+        updateParticipantWrapupWithToken(conversationId, participantId, simpleRequest, 
+                                       wrapupRequest.getWrapup().getCode(), token);
+    }
+
+    public void processWrapupForConversation(String conversationId, WrapupRequest wrapupRequest) throws Exception {
+        executeCompleteWrapupFlow(conversationId, wrapupRequest);
+    }
+
+    // Functional interface for operations with retry
+    @FunctionalInterface
+    private interface GenesysApiOperation<T> {
+        T execute() throws Exception;
+    }
+}
+
+
+
+package com.demsIB.integration.genesys.config;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Component
+@ConfigurationProperties(prefix = "genesys.conversation")
+public class GenesysProperties {
+
+    private String baseUrl = "https://api.aps1.pure.cloud";
+    private String tokenUrl = "https://login.aps1.pure.cloud/oauth/token";
+    private String clientId;
+    private String clientSecret;
+    private int tokenRefreshThresholdMinutes = 60;
+    private int apiTimeoutSeconds = 30;
+    private int maxRetryAttempts = 3;
+    private int circuitBreakerFailureThreshold = 5;
+    private int circuitBreakerResetTimeoutMinutes = 2;
+    
+    // New property for token consistency
+    private boolean useConsistentToken = true;
+
+    // Getters and setters...
+    public boolean isUseConsistentToken() { return useConsistentToken; }
+    public void setUseConsistentToken(boolean useConsistentToken) { this.useConsistentToken = useConsistentToken; }
+    
+    // ... other getters and setters
+}
