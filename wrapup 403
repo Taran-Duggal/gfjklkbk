@@ -438,3 +438,108 @@ public ResponseEntity<Map<String, String>> completeWrapupFlow(
     <artifactId>platform-client-v2</artifactId>
     <version>122.0.0</version> <!-- Check for latest version -->
 </dependency>
+
+
+
+
+
+
+
+
+
+curl --location --request PATCH 'https://api.aps1.pure.cloud/api/v2/conversations/callbacks/caeee5d5-0053-459e-b179-db529255c2f7/participants/285e99d1-c459-4b43-843d-89afa4ea5791' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer 9pWOhdOzWA8FAyo2ynut03sGEckM1XjFl6J8uNnTSk1s64e9An-RfVS8XboMunDQQ-IiqjlnoZqLBRg5YU6XXw' \
+--data '{
+
+  "wrapup": {
+
+    "name": "Active",
+
+    "code": "0b0f9b43-e274-4f02-82e6-319aa6eb62e8",
+
+    "notes": "test"
+
+  }
+
+}
+
+
+
+{
+	"info": {
+		"_postman_id": "0a977916-427e-4b43-83f5-68422b842bd4",
+		"name": "New Collection",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "46221664"
+	},
+	"item": [
+		{
+			"name": "Contact Copy",
+			"request": {
+				"auth": {
+					"type": "oauth2",
+					"oauth2": [
+						{
+							"key": "grant_type",
+							"value": "client_credentials",
+							"type": "string"
+						},
+						{
+							"key": "clientSecret",
+							"value": "RWiJFK5-ZUA2K0MC8Xz1FH2Tlv-n3IwngEaCNwTtOWg",
+							"type": "string"
+						},
+						{
+							"key": "clientId",
+							"value": "4e3f814d-303d-4eea-855c-f6325a51812d",
+							"type": "string"
+						},
+						{
+							"key": "accessTokenUrl",
+							"value": "https://login.aps1.pure.cloud/oauth/token",
+							"type": "string"
+						},
+						{
+							"key": "addTokenTo",
+							"value": "header",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n\r\n  \"wrapup\": {\r\n\r\n    \"name\": \"Active\",\r\n\r\n    \"code\": \"0b0f9b43-e274-4f02-82e6-319aa6eb62e8\",\r\n\r\n    \"notes\": \"test\"\r\n\r\n  }\r\n\r\n}\r\n ",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://api.aps1.pure.cloud/api/v2/conversations/callbacks/caeee5d5-0053-459e-b179-db529255c2f7/participants/285e99d1-c459-4b43-843d-89afa4ea5791",
+					"protocol": "https",
+					"host": [
+						"api",
+						"aps1",
+						"pure",
+						"cloud"
+					],
+					"path": [
+						"api",
+						"v2",
+						"conversations",
+						"callbacks",
+						"caeee5d5-0053-459e-b179-db529255c2f7",
+						"participants",
+						"285e99d1-c459-4b43-843d-89afa4ea5791"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
+ '
