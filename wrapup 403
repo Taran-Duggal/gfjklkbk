@@ -543,3 +543,422 @@ curl --location --request PATCH 'https://api.aps1.pure.cloud/api/v2/conversation
 	]
 }
  '
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+package com.demsIB.integration.genesys.service.impl;
+
+import com.demsIB.integration.genesys.config.GenesysProperties;
+import com.demsIB.integration.genesys.exception.GenesysAuthenticationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+
+@Service
+public class GenesysAuthService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GenesysAuthService.class);
+
+    private final RestTemplate restTemplate;
+    private final GenesysProperties genesysProperties;
+    
+    private final Map<String, TokenInfo> tokenCache = new ConcurrentHashMap<>();
+    private final ReentrantLock tokenLock = new ReentrantLock();
+    private static final String SYSTEM_TOKEN_KEY = "SYSTEM";
+
+    public GenesysAuthService(@Qualifier("genesysRestTemplate") RestTemplate restTemplate,
+                              GenesysProperties genesysProperties) {
+        this.restTemplate = restTemplate;
+        this.genesysProperties = genesysProperties;
+    }
+
+    // Get access token using client credentials flow (same as Postman)
+    public String getAccessToken() {
+        tokenLock.lock();
+        try {
+            TokenInfo tokenInfo = tokenCache.get(SYSTEM_TOKEN_KEY);
+            
+            if (tokenInfo == null || isTokenExpiredOrExpiring(tokenInfo)) {
+                logger.info("Fetching new access token using client credentials flow");
+                tokenInfo = fetchNewToken();
+                tokenCache.put(SYSTEM_TOKEN_KEY, tokenInfo);
+                logger.info("New access token acquired, expires at: {}", tokenInfo.getExpiryTime());
+            } else {
+                logger.debug("Using cached access token");
+            }
+            
+            return tokenInfo.getAccessToken();
+            
+        } finally {
+            tokenLock.unlock();
+        }
+    }
+
+    private boolean isTokenExpiredOrExpiring(TokenInfo tokenInfo) {
+        LocalDateTime refreshThreshold = tokenInfo.getExpiryTime()
+                .minusMinutes(genesysProperties.getTokenRefreshThresholdMinutes());
+        return LocalDateTime.now().isAfter(refreshThreshold);
+    }
+
+    private TokenInfo fetchNewToken() {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+            body.add("grant_type", "client_credentials");
+            body.add("client_id", genesysProperties.getClientId());
+            body.add("client_secret", genesysProperties.getClientSecret());
+
+            HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(body, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    genesysProperties.getTokenUrl(),
+                    HttpMethod.POST,
+                    requestEntity,
+                    Map.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                String accessToken = (String) responseBody.get("access_token");
+                String tokenType = (String) responseBody.get("token_type");
+                Integer expiresIn = (Integer) responseBody.get("expires_in");
+
+                if (accessToken == null) {
+                    throw new GenesysAuthenticationException("Access token not found in response");
+                }
+
+                if (!"bearer".equalsIgnoreCase(tokenType)) {
+                    logger.warn("Unexpected token type: {}", tokenType);
+                }
+
+                // Calculate expiry time
+                LocalDateTime expiryTime = LocalDateTime.now()
+                        .plusSeconds(expiresIn != null ? expiresIn : 86400);
+
+                logger.info("Successfully obtained access token. Expires in: {} seconds", expiresIn);
+                return new TokenInfo(accessToken, expiryTime);
+                
+            } else {
+                throw new GenesysAuthenticationException("Failed to get access token. Status: " + response.getStatusCode());
+            }
+
+        } catch (Exception e) {
+            logger.error("Error fetching Genesys access token", e);
+            throw new GenesysAuthenticationException("Failed to authenticate with Genesys: " + e.getMessage(), e);
+        }
+    }
+
+    public void invalidateToken() {
+        tokenLock.lock();
+        try {
+            tokenCache.remove(SYSTEM_TOKEN_KEY);
+            logger.info("Token invalidated");
+        } finally {
+            tokenLock.unlock();
+        }
+    }
+
+    private static class TokenInfo {
+        private final String accessToken;
+        private final LocalDateTime expiryTime;
+
+        public TokenInfo(String accessToken, LocalDateTime expiryTime) {
+            this.accessToken = accessToken;
+            this.expiryTime = expiryTime;
+        }
+
+        public String getAccessToken() { return accessToken; }
+        public LocalDateTime getExpiryTime() { return expiryTime; }
+    }
+}
+
+
+
+package com.demsIB.integration.genesys.service.impl;
+
+import com.demsIB.integration.genesys.config.GenesysProperties;
+import com.demsIB.integration.genesys.dto.request.WrapupRequest;
+import com.demsIB.integration.genesys.dto.response.WrapupFinalResponse;
+import com.demsIB.integration.genesys.exception.GenesysIntegrationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
+import java.util.HashMap;
+
+@Service
+public class GenesysRestService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GenesysRestService.class);
+
+    private final RestTemplate restTemplate;
+    private final GenesysProperties genesysProperties;
+    private final GenesysAuthService genesysAuthService;
+
+    public GenesysRestService(@Qualifier("genesysRestTemplate") RestTemplate restTemplate,
+                             GenesysProperties genesysProperties,
+                             GenesysAuthService genesysAuthService) {
+        this.restTemplate = restTemplate;
+        this.genesysProperties = genesysProperties;
+        this.genesysAuthService = genesysAuthService;
+    }
+
+    // Update participant wrapup using REST template (same as Postman)
+    public void updateParticipantWrapup(String conversationId, String participantId, 
+                                       WrapupFinalResponse wrapupRequest) {
+        try {
+            // Get fresh access token
+            String accessToken = genesysAuthService.getAccessToken();
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(accessToken);
+            
+            // Create request entity with headers and body
+            HttpEntity<WrapupFinalResponse> requestEntity = new HttpEntity<>(wrapupRequest, headers);
+            
+            // Build the exact same URL as Postman
+            String url = genesysProperties.getBaseUrl() + 
+                "/api/v2/conversations/callbacks/" + conversationId + 
+                "/participants/" + participantId;
+            
+            logger.info("Making PATCH request to: {}", url);
+            logger.info("Request body: {}", wrapupRequest);
+            
+            // Make the PATCH request
+            ResponseEntity<String> response = restTemplate.exchange(
+                url, 
+                HttpMethod.PATCH, 
+                requestEntity, 
+                String.class
+            );
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                logger.info("Successfully updated participant wrapup. Response: {}", response.getBody());
+            } else {
+                throw new GenesysIntegrationException(
+                    "Failed to update participant wrapup. Status: " + response.getStatusCode(), 
+                    response.getStatusCodeValue()
+                );
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error updating participant wrapup: {}", e.getMessage());
+            throw new GenesysIntegrationException("Failed to update participant wrapup: " + e.getMessage(), 500);
+        }
+    }
+
+    // Complete flow using REST calls
+    public void executeCompleteWrapupFlow(String conversationId, WrapupRequest wrapupRequest) {
+        try {
+            logger.info("Starting complete wrapup flow for conversation: {}", conversationId);
+            
+            // Step 1: Get agent participant info
+            Map<String, String> agentInfo = getAgentParticipantInfo(conversationId);
+            String participantId = agentInfo.get("participantId");
+            
+            logger.info("Found agent participant: {}", participantId);
+            
+            // Step 2: Get wrap-up codes and find matching code
+            String wrapupCodeId = findWrapupCodeId(conversationId, participantId, wrapupRequest.getName());
+            
+            logger.info("Found wrapup code ID: {} for name: {}", wrapupCodeId, wrapupRequest.getName());
+            
+            // Step 3: Create wrapup request (same as Postman)
+            WrapupFinalResponse wrapupFinalRequest = createWrapupFinalRequest(wrapupRequest, wrapupCodeId);
+            
+            // Step 4: Update participant wrapup
+            updateParticipantWrapup(conversationId, participantId, wrapupFinalRequest);
+            
+            logger.info("Complete wrapup flow finished successfully");
+            
+        } catch (Exception e) {
+            logger.error("Error in complete wrapup flow: {}", e.getMessage());
+            throw new GenesysIntegrationException("Complete wrapup flow failed: " + e.getMessage(), 500);
+        }
+    }
+
+    private Map<String, String> getAgentParticipantInfo(String conversationId) {
+        // Implement this based on your existing logic
+        // This should call the analytics API to get participant details
+        Map<String, String> agentInfo = new HashMap<>();
+        agentInfo.put("participantId", "285e99d1-c459-4b43-843d-89afa4ea5791"); // Hardcoded for testing
+        return agentInfo;
+    }
+
+    private String findWrapupCodeId(String conversationId, String participantId, String wrapupName) {
+        // Implement this based on your existing logic  
+        // This should call the wrapupcodes API
+        return "0b0f9b43-e274-4f02-82e6-319aa6eb62e8"; // Hardcoded for testing
+    }
+
+    private WrapupFinalResponse createWrapupFinalRequest(WrapupRequest wrapupRequest, String wrapupCodeId) {
+        WrapupFinalResponse finalResponse = new WrapupFinalResponse();
+        
+        // Create the exact same structure as Postman
+        WrapupFinalResponse.WrapupDetails wrapupDetails = new WrapupFinalResponse.WrapupDetails();
+        wrapupDetails.setName(wrapupRequest.getName());
+        wrapupDetails.setCode(wrapupCodeId);
+        wrapupDetails.setNotes(wrapupRequest.getNotes());
+        
+        finalResponse.setWrapup(wrapupDetails);
+        
+        return finalResponse;
+    }
+}
+
+
+
+package com.demsIB.integration.genesys.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@AllArgsConstructor
+@NoArgsConstructor
+@Getter
+@Setter
+public class WrapupFinalResponse {
+    private WrapupDetails wrapup;
+
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Getter
+    @Setter
+    public static class WrapupDetails {
+        private String name;
+        private String code;
+        private String notes;
+    }
+}
+
+
+@RestController
+@RequestMapping("/api/v2/conversations/calls")
+public class GenesysConversationController {
+
+    private final GenesysRestService genesysRestService;
+    private final Logger logger = LoggerFactory.getLogger(GenesysConversationController.class);
+
+    public GenesysConversationController(GenesysRestService genesysRestService) {
+        this.genesysRestService = genesysRestService;
+    }
+
+    @PatchMapping("/{conversationId}/participants/{participantId}")
+    public ResponseEntity<Map<String, String>> updateParticipantWrapup(
+            @PathVariable String conversationId,
+            @PathVariable String participantId,
+            @RequestBody WrapupFinalResponse wrapupRequest) {
+
+        try {
+            logger.info("Received PATCH request for conversation: {}, participant: {}", 
+                       conversationId, participantId);
+            
+            genesysRestService.updateParticipantWrapup(conversationId, participantId, wrapupRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Participant wrapup updated successfully");
+            response.put("conversationId", conversationId);
+            response.put("participantId", participantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error updating participant wrapup: {}", e.getMessage());
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            errorResponse.put("participantId", participantId);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/{conversationId}/complete-wrapup")
+    public ResponseEntity<Map<String, String>> completeWrapupFlow(
+            @PathVariable String conversationId,
+            @RequestBody WrapupRequest wrapupRequest) {
+
+        try {
+            genesysRestService.executeCompleteWrapupFlow(conversationId, wrapupRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Complete wrapup flow executed successfully");
+            response.put("conversationId", conversationId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error in complete wrapup flow: {}", e.getMessage());
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+}
+
+
+# Genesys Configuration
+genesys.conversation.base-url=https://api.aps1.pure.cloud
+genesys.conversation.token-url=https://login.aps1.pure.cloud/oauth/token
+genesys.conversation.client-id=4e3f814d-303d-4eea-855c-f6325a51812d
+genesys.conversation.client-secret=RWiJFK5-ZUA2K0MC8Xz1FH2Tlv-n3IwngEaCNwTtOWg
+genesys.conversation.api-timeout-seconds=30
