@@ -1,0 +1,380 @@
+package com.demsIB.integration.genesys.controller;
+
+import com.demsIB.integration.genesys.dto.request.WrapupRequest;
+import com.demsIB.integration.genesys.dto.response.WrapupFinalResponse;
+import com.demsIB.integration.genesys.exception.GenesysIntegrationException;
+import com.demsIB.integration.genesys.service.impl.GenesysConversationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v2/conversations/calls")
+public class GenesysConversationController {
+
+    private final GenesysConversationService genesysConversationService;
+    private final Logger logger = LoggerFactory.getLogger("GENESYS_LOGGER");
+
+    public GenesysConversationController(GenesysConversationService genesysConversationService) {
+        this.genesysConversationService = genesysConversationService;
+    }
+
+    @PatchMapping("/{conversationId}/participants/{participantId}/wrapup")
+    public ResponseEntity<Map<String, String>> updateParticipantWrapup(
+            @PathVariable String conversationId,
+            @PathVariable String participantId,
+            @RequestBody WrapupFinalResponse wrapupRequest) {
+
+        try {
+            genesysConversationService.updateParticipantWrapup(conversationId, participantId, wrapupRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Participant wrapup updated successfully");
+            response.put("conversationId", conversationId);
+            response.put("participantId", participantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (GenesysIntegrationException e) {
+            logger.error("Genesys integration error: {}", e.getMessage());
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            errorResponse.put("participantId", participantId);
+            return ResponseEntity.status(HttpStatus.valueOf(e.getHttpStatus())).body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error updating participant wrapup: {}", e.getMessage());
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", "Internal server error");
+            errorResponse.put("conversationId", conversationId);
+            errorResponse.put("participantId", participantId);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @GetMapping("/{conversationId}/participants/{participantId}/wrapupcodes")
+    public ResponseEntity<?> getWrapUpCodes(
+            @PathVariable String conversationId,
+            @PathVariable String participantId) {
+
+        try {
+            Object response = genesysConversationService.getWrapUpCodes(conversationId, participantId);
+            return ResponseEntity.ok(response);
+
+        } catch (GenesysIntegrationException e) {
+            logger.error("Genesys integration error: {}", e.getMessage());
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            errorResponse.put("participantId", participantId);
+            return ResponseEntity.status(HttpStatus.valueOf(e.getHttpStatus())).body(errorResponse);
+        } catch (Exception e) {
+            logger.error("Unexpected error getting wrapup codes: {}", e.getMessage());
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", "Internal server error");
+            errorResponse.put("conversationId", conversationId);
+            errorResponse.put("participantId", participantId);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    @GetMapping("/{conversationId}/agent-participant")
+    public ResponseEntity<Map<String, String>> getAgentParticipantId(@PathVariable String conversationId) {
+        try {
+            Map<String, String> agentInfo = genesysConversationService.getAgentParticipantInfo(conversationId);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("conversationId", conversationId);
+            response.put("agentParticipantId", agentInfo.get("participantId"));
+            response.put("userId", agentInfo.get("userId"));
+            response.put("status", "success");
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error getting agent participant: {}", e.getMessage());
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
+    }
+
+    @PostMapping("/{conversationId}/wrapup")
+    public ResponseEntity<Map<String, String>> processConversationWrapup(
+            @PathVariable String conversationId,
+            @RequestBody WrapupRequest wrapupRequest) {
+
+        try {
+            genesysConversationService.processWrapupForConversation(conversationId, wrapupRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Conversation wrapup processed successfully");
+            response.put("conversationId", conversationId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error processing conversation wrapup: {}", e.getMessage());
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    // New endpoint to handle complete wrap-up flow
+    @PostMapping("/{conversationId}/complete-wrapup")
+    public ResponseEntity<Map<String, String>> completeWrapupFlow(
+            @PathVariable String conversationId,
+            @RequestBody WrapupRequest wrapupRequest) {
+
+        try {
+            genesysConversationService.executeCompleteWrapupFlow(conversationId, wrapupRequest);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Complete wrapup flow executed successfully");
+            response.put("conversationId", conversationId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error in complete wrapup flow: {}", e.getMessage());
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("status", "error");
+            errorResponse.put("message", e.getMessage());
+            errorResponse.put("conversationId", conversationId);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+}
+
+
+
+package com.demsIB.integration.genesys.service.impl;
+
+import com.demsIB.integration.genesys.config.GenesysProperties;
+import com.demsIB.integration.genesys.dto.request.WrapupRequest;
+import com.demsIB.integration.genesys.dto.response.*;
+import com.demsIB.integration.genesys.exception.GenesysIntegrationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+
+@Service
+public class GenesysConversationService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GenesysConversationService.class);
+
+    private final RestTemplate restTemplate;
+    private final GenesysProperties genesysProperties;
+    private final GenesysAuthService genesysAuthService;
+    private final GenesysCircuitBreaker circuitBreaker;
+
+    public GenesysConversationService(@Qualifier("genesysRestTemplate") RestTemplate restTemplate,
+                                     GenesysProperties genesysProperties,
+                                     GenesysAuthService genesysAuthService,
+                                     GenesysCircuitBreaker circuitBreaker) {
+        this.restTemplate = restTemplate;
+        this.genesysProperties = genesysProperties;
+        this.genesysAuthService = genesysAuthService;
+        this.circuitBreaker = circuitBreaker;
+    }
+
+    // Complete wrap-up flow
+    public void executeCompleteWrapupFlow(String conversationId, WrapupRequest wrapupRequest) throws Exception {
+        logger.info("Starting complete wrapup flow for conversation: {}", conversationId);
+        
+        // Step 1: Get agent participant info
+        Map<String, String> agentInfo = getAgentParticipantInfo(conversationId);
+        String participantId = agentInfo.get("participantId");
+        String userId = agentInfo.get("userId");
+        
+        logger.info("Found agent participant - ID: {}, User: {}", participantId, userId);
+        
+        // Step 2: Get wrap-up codes and find the matching code ID
+        String wrapupCodeId = findWrapupCodeId(conversationId, participantId, wrapupRequest.getName());
+        
+        // Step 3: Update participant wrap-up
+        WrapupFinalResponse wrapupFinalResponse = new WrapupFinalResponse();
+        WrapupDetails wrapupDetails = new WrapupDetails();
+        wrapupDetails.setName(wrapupRequest.getName());
+        wrapupDetails.setCode(wrapupCodeId);
+        wrapupDetails.setNotes(wrapupRequest.getNotes());
+        wrapupFinalResponse.setWrapup(wrapupDetails);
+        
+        updateParticipantWrapup(conversationId, participantId, wrapupFinalResponse);
+        
+        logger.info("Complete wrapup flow finished successfully for conversation: {}", conversationId);
+    }
+
+    // Get agent participant information from conversation details
+    public Map<String, String> getAgentParticipantInfo(String conversationId) throws Exception {
+        return circuitBreaker.execute(() -> {
+            String accessToken = genesysAuthService.getSystemAccessToken();
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            String url = genesysProperties.getBaseUrl() + 
+                "/api/v2/analytics/conversations/details?id=" + conversationId;
+            
+            ResponseEntity<ConversationDetailsResponse> response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, ConversationDetailsResponse.class);
+            
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                ConversationDetailsResponse conversationDetails = response.getBody();
+                
+                if (conversationDetails.getConversations() != null && 
+                    !conversationDetails.getConversations().isEmpty()) {
+                    
+                    for (ConversationDetailsResponse.Conversation conversation : 
+                         conversationDetails.getConversations()) {
+                        
+                        if (conversationId.equals(conversation.getConversationId()) && 
+                            conversation.getParticipants() != null) {
+                            
+                            for (ConversationDetailsResponse.Participant participant : 
+                                 conversation.getParticipants()) {
+                                
+                                if ("agent".equalsIgnoreCase(participant.getPurpose())) {
+                                    Map<String, String> agentInfo = new HashMap<>();
+                                    agentInfo.put("participantId", participant.getParticipantId());
+                                    agentInfo.put("userId", participant.getUserId());
+                                    return agentInfo;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            throw new GenesysIntegrationException("Agent participant not found for conversation: " + conversationId, 
+                                                HttpStatus.NOT_FOUND.value());
+        });
+    }
+
+    // Get wrap-up codes and find the matching code ID by name
+    public String findWrapupCodeId(String conversationId, String participantId, String wrapupName) throws Exception {
+        List<WrapUpResponse> wrapupCodes = getWrapUpCodes(conversationId, participantId);
+        
+        return wrapupCodes.stream()
+            .filter(code -> wrapupName.equalsIgnoreCase(code.getName()))
+            .findFirst()
+            .map(WrapUpResponse::getId)
+            .orElseThrow(() -> new GenesysIntegrationException(
+                "Wrap-up code not found for name: " + wrapupName, HttpStatus.NOT_FOUND.value()));
+    }
+
+    // Get available wrap-up codes for participant
+    @SuppressWarnings("unchecked")
+    public List<WrapUpResponse> getWrapUpCodes(String conversationId, String participantId) throws Exception {
+        return circuitBreaker.execute(() -> {
+            String accessToken = genesysAuthService.getSystemAccessToken();
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            String url = genesysProperties.getBaseUrl() + 
+                "/api/v2/conversations/callbacks/" + conversationId + 
+                "/participants/" + participantId + "/wrapupcodes";
+            
+            ResponseEntity<WrapUpResponse[]> response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, WrapUpResponse[].class);
+            
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return Arrays.asList(response.getBody());
+            }
+            
+            throw new GenesysIntegrationException("Failed to get wrap-up codes for participant: " + participantId, 
+                                                response.getStatusCodeValue());
+        });
+    }
+
+    // Update participant wrap-up
+    public void updateParticipantWrapup(String conversationId, String participantId, 
+                                       WrapupFinalResponse wrapupRequest) throws Exception {
+        circuitBreaker.execute(() -> {
+            String accessToken = genesysAuthService.getSystemAccessToken();
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<WrapupFinalResponse> entity = new HttpEntity<>(wrapupRequest, headers);
+            
+            String url = genesysProperties.getBaseUrl() + 
+                "/api/v2/conversations/callbacks/" + conversationId + 
+                "/participants/" + participantId;
+            
+            ResponseEntity<String> response = restTemplate.exchange(
+                url, HttpMethod.PATCH, entity, String.class);
+            
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new GenesysIntegrationException("Failed to update participant wrap-up: " + 
+                                                    response.getStatusCode(), 
+                                                    response.getStatusCodeValue());
+            }
+            
+            logger.info("Successfully updated wrap-up for participant: {} in conversation: {}", 
+                       participantId, conversationId);
+            return null;
+        });
+    }
+
+    // Process wrap-up for conversation (existing method)
+    public void processWrapupForConversation(String conversationId, WrapupRequest wrapupRequest) throws Exception {
+        executeCompleteWrapupFlow(conversationId, wrapupRequest);
+    }
+}
+
+package com.demsIB.integration.genesys.dto.response;
+
+import lombok.Data;
+import java.util.List;
+
+@Data
+public class ConversationDetailsResponse {
+    private List<Conversation> conversations;
+
+    @Data
+    public static class Conversation {
+        private String conversationId;
+        private List<Participant> participants;
+    }
+
+    @Data
+    public static class Participant {
+        private String participantId;
+        private String purpose;
+        private String userId;
+    }
+}
